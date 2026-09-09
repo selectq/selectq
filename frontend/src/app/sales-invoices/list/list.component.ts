@@ -13,6 +13,7 @@ import { ApiService, SalesInvoice, BusinessPartner } from '../../api.service';
 export class ListComponent implements OnInit {
   invoices: SalesInvoice[] = [];
   businessPartners: BusinessPartner[] = [];
+  currencies: string[] = ['USD', 'GBP', 'EUR', 'AED', 'INR', 'CHF'];
   selectedInvoice: SalesInvoice | null = null;
   isNew = false;
   isLoading = true;
