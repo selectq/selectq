@@ -41,6 +41,48 @@
   <div class="detail-view glass-card" *ngIf="selectedInvoice">
     <div class="detail-header">
       <div class="header-info">
+        <h3>{{ isNew ? 'New Invoice' : 'Edit Invoice: ' + selectedInvoice.invoice_number }}</h3>
+      </div>
+    </div>
+
+    <div class="detail-body form-grid">
+      
+      <div class="form-group">
+        <label>Invoice Number <span style="color: #ef4444;">*</span></label>
+        <input type="text" class="form-control" [(ngModel)]="selectedInvoice.invoice_number" placeholder="e.g. INV-2026-001" />
+      </div>
+
+      <div class="form-group">
+        <label>Financial Year <span style="color: #ef4444;">*</span></label>
+        <input type="text" class="form-control" [(ngModel)]="selectedInvoice.financial_year" placeholder="e.g. 2026-27" />
+      </div>
+
+      <div class="form-group">
+        <label>Business Partner <span style="color: #ef4444;">*</span></label>
+        <select class="form-control" [(ngModel)]="selectedInvoice.business_partner_id">
+          <option [ngValue]="0" disabled>Select Partner</option>
+          <option *ngFor="let bp of businessPartners" [ngValue]="bp.id">{{ bp.name }}</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Invoice Date <span style="color: #ef4444;">*</span></label>
+        <input type="date" class="form-control" [(ngModel)]="selectedInvoice.invoice_date" />
+      </div>
+
+      <div class="form-group">
+        <label>Currency <span style="color: #ef4444;">*</span></label>
+        <input type="text" class="form-control" [(ngModel)]="selectedInvoice.currency" placeholder="e.g. USD, INR" />
+      </div>
+
+      <div class="form-group">
+        <label>Amount <span style="color: #ef4444;">*</span></label>
+        <input type="number" class="form-control" [(ngModel)]="selectedInvoice.amount" />
+      </div>
+
+    </div>
+    
+    <div class="form-actions">
       <button class="btn-primary" (click)="save()">Save Invoice</button>
       <button class="btn-secondary" (click)="cancel()">Cancel</button>
     </div>
