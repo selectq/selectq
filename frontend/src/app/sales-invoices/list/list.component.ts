@@ -60,6 +60,18 @@ export class ListComponent implements OnInit {
   save() {
     if (!this.selectedInvoice) return;
     
+    // Mandatory field validation
+    if (!this.selectedInvoice.invoice_number || 
+        !this.selectedInvoice.financial_year || 
+        !this.selectedInvoice.business_partner_id || 
+        !this.selectedInvoice.invoice_date || 
+        !this.selectedInvoice.currency || 
+        this.selectedInvoice.amount === null || 
+        this.selectedInvoice.amount === undefined) {
+      alert('All fields are mandatory. Please fill out all details.');
+      return;
+    }
+
     if (this.isNew) {
       this.api.createSalesInvoice(this.selectedInvoice).subscribe({
         next: () => {
