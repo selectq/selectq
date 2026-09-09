@@ -20,6 +20,15 @@
         <span>Business Partners</span>
       </a>
     </nav>
+    
+    <div style="flex-grow: 1;"></div>
+    
+    <div class="theme-toggle-container" style="padding: 1rem;">
+      <button class="theme-toggle-btn" (click)="toggleTheme()" [title]="isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'">
+        <span class="icon">{{ isDarkMode ? '🌞' : '🌙' }}</span>
+        <span>{{ isDarkMode ? 'Light Mode' : 'Dark Mode' }}</span>
+      </button>
+    </div>
   </aside>
 
   <!-- Main Content Area -->

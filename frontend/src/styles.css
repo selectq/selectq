@@ -1,18 +1,34 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
+  /* Common variables */
   --primary-color: #6366f1;
   --primary-hover: #4f46e5;
   --secondary-color: #ec4899;
+  --success: #10b981;
+  --danger: #ef4444;
+  --font-family: 'Inter', sans-serif;
+  
+  /* Dark Theme (Default) */
   --bg-gradient-start: #0f172a;
   --bg-gradient-end: #1e293b;
   --surface-color: rgba(30, 41, 59, 0.7);
   --surface-border: rgba(255, 255, 255, 0.1);
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
-  --success: #10b981;
-  --danger: #ef4444;
-  --font-family: 'Inter', sans-serif;
+  --list-hover: rgba(255, 255, 255, 0.05);
+  --input-bg: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] {
+  --bg-gradient-start: #f8fafc;
+  --bg-gradient-end: #e2e8f0;
+  --surface-color: rgba(255, 255, 255, 0.85);
+  --surface-border: rgba(0, 0, 0, 0.1);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --list-hover: rgba(0, 0, 0, 0.04);
+  --input-bg: rgba(255, 255, 255, 0.5);
 }
 
 * {
@@ -27,6 +43,7 @@ body {
   color: var(--text-primary);
   min-height: 100vh;
   overflow-x: hidden;
+  transition: background 0.4s ease, color 0.4s ease;
 }
 
 /* App Layout */
@@ -186,7 +203,7 @@ table {
 }
 
 th {
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--input-bg);
   padding: 1rem;
   font-weight: 600;
   color: var(--text-secondary);
@@ -197,7 +214,7 @@ th {
 
 td {
   padding: 1.25rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--surface-border);
   vertical-align: middle;
 }
 
@@ -206,7 +223,7 @@ tbody tr {
 }
 
 tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--list-hover);
 }
 
 /* Tags & Badges */

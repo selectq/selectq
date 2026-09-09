@@ -12,6 +12,7 @@ export interface ImportRecord {
 }
 
 export interface BankTransaction {
+  id: number;
   date: string;
   narration: string;
   chq_ref_no: string;
@@ -22,6 +23,8 @@ export interface BankTransaction {
   account_head: string;
   sub_account_head: string;
   invoice_number: string;
+  business_partner_id?: number;
+  business_partner_name?: string;
   currency: string;
   exchange_rate: number;
   forex_amount: number;
@@ -55,6 +58,10 @@ export class ApiService {
 
   getTransactions(importId: number): Observable<BankTransaction[]> {
     return this.http.get<BankTransaction[]>(`${this.baseUrl}/imports/${importId}/transactions`);
+  }
+
+  updateTransaction(txnId: number, payload: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}/transactions/${txnId}`, payload);
   }
 
   getBusinessPartners(query?: string): Observable<BusinessPartner[]> {

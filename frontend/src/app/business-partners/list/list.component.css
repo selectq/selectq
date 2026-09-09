@@ -26,7 +26,29 @@ h2 {
   min-width: 300px;
   max-width: 400px;
   overflow-y: auto;
-  padding: 1rem 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.master-header {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--surface-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  background: var(--surface-color);
+  z-index: 10;
+  backdrop-filter: blur(12px);
+}
+
+.master-header h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .list-item {
@@ -114,4 +136,41 @@ h2 {
 
 .font-mono {
   font-family: 'Courier New', Courier, monospace;
+}
+
+/* Icon Buttons */
+.btn-icon {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  padding: 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-icon:hover {
+  background: var(--input-bg);
+  color: var(--primary-color);
+}
+
+.btn-icon-primary {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--primary-color);
+  border: none;
+  padding: 0.4rem;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-icon-primary:hover {
+  background: rgba(99, 102, 241, 0.2);
+  transform: scale(1.05);
 }

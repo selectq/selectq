@@ -171,6 +171,11 @@ func createTables(db *sql.DB) error {
 	);
 	`
 	_, err := db.Exec(schema)
+	
+	// Add business_partner_id column if it doesn't exist.
+	// Ignore error since it fails if the column already exists.
+	db.Exec("ALTER TABLE bank_transactions ADD COLUMN business_partner_id INTEGER REFERENCES business_partners(id);")
+	
 	return err
 }
 
@@ -199,11 +204,12 @@ func GetImports(db *sql.DB) ([]ImportRecord, error) {
 // GetTransactions fetches all transactions for a specific import ID.
 func GetTransactions(db *sql.DB, importID int) ([]BankTransaction, error) {
 	rows, err := db.Query(`
-		SELECT txn_date, narration, chq_ref_no, value_date, withdrawal_amt, deposit_amt, closing_balance,
-		       account_head, sub_account_head, invoice_number, currency, exchange_rate, forex_amount
-		FROM bank_transactions
-		WHERE import_id = ?
-		ORDER BY id ASC
+		SELECT t.id, t.txn_date, t.narration, t.chq_ref_no, t.value_date, t.withdrawal_amt, t.deposit_amt, t.closing_balance,
+		       t.account_head, t.sub_account_head, t.invoice_number, t.business_partner_id, bp.name, t.currency, t.exchange_rate, t.forex_amount
+		FROM bank_transactions t
+		LEFT JOIN business_partners bp ON t.business_partner_id = bp.id
+		WHERE t.import_id = ?
+		ORDER BY t.id ASC
 	`, importID)
 	if err != nil {
 		return nil, err
@@ -213,15 +219,44 @@ func GetTransactions(db *sql.DB, importID int) ([]BankTransaction, error) {
 	var txns []BankTransaction
 	for rows.Next() {
 		var t BankTransaction
+		var bpID sql.NullInt64
+		var bpName sql.NullString
+		
 		if err := rows.Scan(
-			&t.Date, &t.Narration, &t.ChqRefNo, &t.ValueDate, &t.WithdrawalAmt, &t.DepositAmt, &t.ClosingBalance,
-			&t.AccountHead, &t.SubAccountHead, &t.InvoiceNumber, &t.Currency, &t.ExchangeRate, &t.ForexAmount,
+			&t.ID, &t.Date, &t.Narration, &t.ChqRefNo, &t.ValueDate, &t.WithdrawalAmt, &t.DepositAmt, &t.ClosingBalance,
+			&t.AccountHead, &t.SubAccountHead, &t.InvoiceNumber, &bpID, &bpName, &t.Currency, &t.ExchangeRate, &t.ForexAmount,
 		); err != nil {
 			return nil, err
 		}
+		
+		if bpID.Valid {
+			id := int(bpID.Int64)
+			t.BusinessPartnerID = &id
+			t.BusinessPartnerName = bpName.String
+		}
+		
 		txns = append(txns, t)
 	}
 	return txns, nil
+}
+
+// UpdateTransactionClassification saves edits to a transaction's classification.
+func UpdateTransactionClassification(db *sql.DB, txnID int, accountHead, subAccountHead string, bpID *int) error {
+	var err error
+	if bpID != nil {
+		_, err = db.Exec(`
+			UPDATE bank_transactions
+			SET account_head = ?, sub_account_head = ?, business_partner_id = ?
+			WHERE id = ?
+		`, accountHead, subAccountHead, *bpID, txnID)
+	} else {
+		_, err = db.Exec(`
+			UPDATE bank_transactions
+			SET account_head = ?, sub_account_head = ?, business_partner_id = NULL
+			WHERE id = ?
+		`, accountHead, subAccountHead, txnID)
+	}
+	return err
 }
 
 // CreateBusinessPartner inserts a new business partner.

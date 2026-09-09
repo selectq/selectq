@@ -2,6 +2,7 @@ package core
 
 // BankTransaction represents a single row from the HDFC bank statement.
 type BankTransaction struct {
+	ID             int     `json:"id"`
 	Date           string  `json:"date"`
 	Narration      string  `json:"narration"`
 	ChqRefNo       string  `json:"chq_ref_no"`
@@ -11,9 +12,11 @@ type BankTransaction struct {
 	ClosingBalance float64 `json:"closing_balance"`
 
 	// Classification fields
-	AccountHead    string  `json:"account_head"`
-	SubAccountHead string  `json:"sub_account_head"`
-	InvoiceNumber  string  `json:"invoice_number"`
+	AccountHead         string  `json:"account_head"`
+	SubAccountHead      string  `json:"sub_account_head"`
+	InvoiceNumber       string  `json:"invoice_number"`
+	BusinessPartnerID   *int    `json:"business_partner_id"`
+	BusinessPartnerName string  `json:"business_partner_name"`
 
 	// Forex fields
 	Currency       string  `json:"currency"`

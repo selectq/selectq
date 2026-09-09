@@ -47,6 +47,36 @@ func (s *Server) GetTransactions(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(txns)
 }
 
+// TransactionUpdatePayload defines what fields can be updated
+type TransactionUpdatePayload struct {
+	AccountHead       string `json:"account_head"`
+	SubAccountHead    string `json:"sub_account_head"`
+	BusinessPartnerID *int   `json:"business_partner_id"`
+}
+
+func (s *Server) UpdateTransaction(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid transaction ID", http.StatusBadRequest)
+		return
+	}
+
+	var payload TransactionUpdatePayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := core.UpdateTransactionClassification(s.DB, id, payload.AccountHead, payload.SubAccountHead, payload.BusinessPartnerID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{"message": "Transaction updated successfully"})
+}
+
 func (s *Server) GetBusinessPartners(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	query := r.URL.Query().Get("q")
