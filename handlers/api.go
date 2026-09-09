@@ -51,6 +51,7 @@ func (s *Server) GetTransactions(w http.ResponseWriter, r *http.Request) {
 type TransactionUpdatePayload struct {
 	AccountHead       string `json:"account_head"`
 	SubAccountHead    string `json:"sub_account_head"`
+	InvoiceNumber     string `json:"invoice_number"`
 	BusinessPartnerID *int   `json:"business_partner_id"`
 }
 
@@ -69,7 +70,7 @@ func (s *Server) UpdateTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := core.UpdateTransactionClassification(s.DB, id, payload.AccountHead, payload.SubAccountHead, payload.BusinessPartnerID); err != nil {
+	if err := core.UpdateTransactionClassification(s.DB, id, payload.AccountHead, payload.SubAccountHead, payload.InvoiceNumber, payload.BusinessPartnerID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -207,4 +208,55 @@ func (s *Server) UploadStatement(w http.ResponseWriter, r *http.Request) {
 		"account":    meta.AccountNo,
 		"period":     fmt.Sprintf("%s to %s", meta.StatementFrom, meta.StatementTo),
 	})
+}
+
+func (s *Server) GetSalesInvoices(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	invoices, err := core.GetSalesInvoices(s.DB)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(invoices)
+}
+
+func (s *Server) CreateSalesInvoice(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var inv core.SalesInvoice
+	if err := json.NewDecoder(r.Body).Decode(&inv); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	id, err := core.CreateSalesInvoice(s.DB, inv)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	inv.ID = id
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(inv)
+}
+
+func (s *Server) UpdateSalesInvoice(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	var inv core.SalesInvoice
+	if err := json.NewDecoder(r.Body).Decode(&inv); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	inv.ID = id
+	if err := core.UpdateSalesInvoice(s.DB, inv); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"message": "Sales invoice updated successfully"})
 }

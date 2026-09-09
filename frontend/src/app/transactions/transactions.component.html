@@ -13,78 +13,16 @@
   </div>
 
   <div class="table-container" *ngIf="!isLoading">
-    <table>
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Narration</th>
-          <th>Amount</th>
-          <th>Account Head</th>
-          <th>Sub Account</th>
-          <th>Business Partner</th>
-          <th>Forex Details</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let txn of transactions" [class.unclassified]="!txn.account_head">
-          <td style="white-space: nowrap">{{ txn.date }}</td>
-          <td class="narration">
-            <div class="text-truncate" [title]="txn.narration">{{ txn.narration }}</div>
-            <div class="ref" *ngIf="txn.chq_ref_no">Ref: {{ txn.chq_ref_no }}</div>
-          </td>
-          <td class="amount-col">
-            <span class="debit" *ngIf="txn.withdrawal_amt > 0">-{{ txn.withdrawal_amt | number:'1.2-2' }}</span>
-            <span class="credit" *ngIf="txn.deposit_amt > 0">+{{ txn.deposit_amt | number:'1.2-2' }}</span>
-          </td>
-          <td *ngIf="editingTxnId !== txn.id">
-            <span class="badge" [ngClass]="txn.account_head ? 'green' : 'gray'">
-              {{ txn.account_head || 'Unclassified' }}
-            </span>
-          </td>
-          <td *ngIf="editingTxnId === txn.id">
-            <input type="text" class="form-control" [(ngModel)]="editPayload.account_head" />
-          </td>
-
-          <td *ngIf="editingTxnId !== txn.id">{{ txn.sub_account_head }}</td>
-          <td *ngIf="editingTxnId === txn.id">
-            <input type="text" class="form-control" [(ngModel)]="editPayload.sub_account_head" />
-          </td>
-
-          <td *ngIf="editingTxnId !== txn.id">
-            <span *ngIf="txn.business_partner_name" class="badge pink">{{ txn.business_partner_name }}</span>
-          </td>
-          <td *ngIf="editingTxnId === txn.id">
-            <select class="form-control" [(ngModel)]="editPayload.business_partner_id">
-              <option [ngValue]="null">-- None --</option>
-              <option *ngFor="let bp of businessPartners" [ngValue]="bp.id">{{ bp.name }}</option>
-            </select>
-          </td>
-
-          <td class="forex-details">
-            <div *ngIf="txn.currency">
-              <span class="badge pink">{{ txn.currency }} {{ txn.forex_amount }}</span>
-              <div class="rate" *ngIf="txn.exchange_rate">&#64; {{ txn.exchange_rate }}</div>
-            </div>
-          </td>
-          
-          <td>
-            <div *ngIf="editingTxnId !== txn.id">
-              <button class="btn-icon" (click)="startEdit(txn)" title="Edit Classification">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-              </button>
-            </div>
-            <div *ngIf="editingTxnId === txn.id" style="display: flex; gap: 0.5rem;">
-              <button class="btn-icon" style="color: var(--success);" (click)="saveEdit(txn)" title="Save">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-              </button>
-              <button class="btn-icon" style="color: var(--danger);" (click)="cancelEdit()" title="Cancel">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-              </button>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <ag-grid-angular
+      style="width: 100%; height: 600px;"
+      [class]="isDarkMode ? 'ag-theme-quartz-dark' : 'ag-theme-quartz'"
+      [rowData]="transactions"
+      [columnDefs]="columnDefs"
+      [defaultColDef]="defaultColDef"
+      (cellValueChanged)="onCellValueChanged($event)"
+      [animateRows]="true"
+      [pagination]="true"
+      [paginationPageSize]="20">
+    </ag-grid-angular>
   </div>
 </div>

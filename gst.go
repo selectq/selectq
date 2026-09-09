@@ -40,6 +40,10 @@ func main() {
 	api.HandleFunc("/business-partners/{id:[0-9]+}", srv.GetBusinessPartnerByID).Methods("GET")
 	api.HandleFunc("/business-partners/{id:[0-9]+}", srv.UpdateBusinessPartner).Methods("PUT")
 	
+	api.HandleFunc("/sales-invoices", srv.GetSalesInvoices).Methods("GET")
+	api.HandleFunc("/sales-invoices", srv.CreateSalesInvoice).Methods("POST")
+	api.HandleFunc("/sales-invoices/{id:[0-9]+}", srv.UpdateSalesInvoice).Methods("PUT")
+	
 	api.HandleFunc("/upload", srv.UploadStatement).Methods("POST")
 
 	// --- Serve Angular Frontend ---

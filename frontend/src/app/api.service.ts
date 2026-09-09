@@ -38,6 +38,17 @@ export interface BusinessPartner {
   tax_information: string;
 }
 
+export interface SalesInvoice {
+  id?: number;
+  invoice_number: string;
+  financial_year: string;
+  business_partner_id: number;
+  business_partner_name?: string;
+  invoice_date: string;
+  currency: string;
+  amount: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -79,8 +90,20 @@ export class ApiService {
   getBusinessPartner(id: number): Observable<BusinessPartner> {
     return this.http.get<BusinessPartner>(`${this.baseUrl}/business-partners/${id}`);
   }
-
+  
   updateBusinessPartner(id: number, partner: BusinessPartner): Observable<BusinessPartner> {
     return this.http.put<BusinessPartner>(`${this.baseUrl}/business-partners/${id}`, partner);
+  }
+
+  getSalesInvoices(): Observable<SalesInvoice[]> {
+    return this.http.get<SalesInvoice[]>(`${this.baseUrl}/sales-invoices`);
+  }
+
+  createSalesInvoice(invoice: SalesInvoice): Observable<SalesInvoice> {
+    return this.http.post<SalesInvoice>(`${this.baseUrl}/sales-invoices`, invoice);
+  }
+
+  updateSalesInvoice(id: number, invoice: SalesInvoice): Observable<SalesInvoice> {
+    return this.http.put<SalesInvoice>(`${this.baseUrl}/sales-invoices/${id}`, invoice);
   }
 }

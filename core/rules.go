@@ -55,7 +55,7 @@ var classificationRules = []ClassificationRule{
 			return Classification{
 				AccountHead:    "Sales Invoice",
 				SubAccountHead: "",
-				InvoiceNumber:  matches[1],
+				InvoiceNumber:  "", // Left out intentionally during parsing
 				Currency:       matches[2],
 				ExchangeRate:   exchRate,
 				ForexAmount:    forexAmt,

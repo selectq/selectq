@@ -169,6 +169,18 @@ func createTables(db *sql.DB) error {
 		tax_information  TEXT,
 		created_at       DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
+
+	CREATE TABLE IF NOT EXISTS sales_invoices (
+		id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+		invoice_number      TEXT NOT NULL UNIQUE,
+		financial_year      TEXT NOT NULL,
+		business_partner_id INTEGER NOT NULL,
+		invoice_date        TEXT NOT NULL,
+		currency            TEXT NOT NULL,
+		amount              REAL NOT NULL,
+		created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (business_partner_id) REFERENCES business_partners(id)
+	);
 	`
 	_, err := db.Exec(schema)
 	
@@ -241,20 +253,20 @@ func GetTransactions(db *sql.DB, importID int) ([]BankTransaction, error) {
 }
 
 // UpdateTransactionClassification saves edits to a transaction's classification.
-func UpdateTransactionClassification(db *sql.DB, txnID int, accountHead, subAccountHead string, bpID *int) error {
+func UpdateTransactionClassification(db *sql.DB, txnID int, accountHead, subAccountHead, invoiceNumber string, bpID *int) error {
 	var err error
 	if bpID != nil {
 		_, err = db.Exec(`
 			UPDATE bank_transactions
-			SET account_head = ?, sub_account_head = ?, business_partner_id = ?
+			SET account_head = ?, sub_account_head = ?, invoice_number = ?, business_partner_id = ?
 			WHERE id = ?
-		`, accountHead, subAccountHead, *bpID, txnID)
+		`, accountHead, subAccountHead, invoiceNumber, *bpID, txnID)
 	} else {
 		_, err = db.Exec(`
 			UPDATE bank_transactions
-			SET account_head = ?, sub_account_head = ?, business_partner_id = NULL
+			SET account_head = ?, sub_account_head = ?, invoice_number = ?, business_partner_id = NULL
 			WHERE id = ?
-		`, accountHead, subAccountHead, txnID)
+		`, accountHead, subAccountHead, invoiceNumber, txnID)
 	}
 	return err
 }
@@ -322,4 +334,58 @@ func GetBusinessPartners(db *sql.DB, query string) ([]BusinessPartner, error) {
 		partners = append(partners, p)
 	}
 	return partners, nil
+}
+
+// GetSalesInvoices fetches sales invoices.
+func GetSalesInvoices(db *sql.DB) ([]SalesInvoice, error) {
+	rows, err := db.Query(`
+		SELECT s.id, s.invoice_number, s.financial_year, s.business_partner_id, bp.name, s.invoice_date, s.currency, s.amount
+		FROM sales_invoices s
+		LEFT JOIN business_partners bp ON s.business_partner_id = bp.id
+		ORDER BY s.invoice_date DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var invoices []SalesInvoice
+	for rows.Next() {
+		var inv SalesInvoice
+		var bpName sql.NullString
+		if err := rows.Scan(&inv.ID, &inv.InvoiceNumber, &inv.FinancialYear, &inv.BusinessPartnerID, &bpName, &inv.InvoiceDate, &inv.Currency, &inv.Amount); err != nil {
+			return nil, err
+		}
+		if bpName.Valid {
+			inv.BusinessPartnerName = bpName.String
+		}
+		invoices = append(invoices, inv)
+	}
+	return invoices, nil
+}
+
+// CreateSalesInvoice creates a new sales invoice.
+func CreateSalesInvoice(db *sql.DB, inv SalesInvoice) (int, error) {
+	result, err := db.Exec(`
+		INSERT INTO sales_invoices (invoice_number, financial_year, business_partner_id, invoice_date, currency, amount)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, inv.InvoiceNumber, inv.FinancialYear, inv.BusinessPartnerID, inv.InvoiceDate, inv.Currency, inv.Amount)
+	if err != nil {
+		return 0, err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	return int(id), nil
+}
+
+// UpdateSalesInvoice updates an existing sales invoice.
+func UpdateSalesInvoice(db *sql.DB, inv SalesInvoice) error {
+	_, err := db.Exec(`
+		UPDATE sales_invoices
+		SET invoice_number = ?, financial_year = ?, business_partner_id = ?, invoice_date = ?, currency = ?, amount = ?
+		WHERE id = ?
+	`, inv.InvoiceNumber, inv.FinancialYear, inv.BusinessPartnerID, inv.InvoiceDate, inv.Currency, inv.Amount, inv.ID)
+	return err
 }

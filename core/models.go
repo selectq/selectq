@@ -62,3 +62,15 @@ type BusinessPartner struct {
 	InvoiceCurrency string `json:"invoice_currency"`
 	TaxInformation  string `json:"tax_information"`
 }
+
+// SalesInvoice represents a sales invoice stored in the system.
+type SalesInvoice struct {
+	ID                  int     `json:"id"`
+	InvoiceNumber       string  `json:"invoice_number"`
+	FinancialYear       string  `json:"financial_year"`
+	BusinessPartnerID   int     `json:"business_partner_id"`
+	BusinessPartnerName string  `json:"business_partner_name,omitempty"`
+	InvoiceDate         string  `json:"invoice_date"`
+	Currency            string  `json:"currency"`
+	Amount              float64 `json:"amount"`
+}

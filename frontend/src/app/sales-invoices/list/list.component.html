@@ -1,0 +1,91 @@
+<div class="header-action">
+  <div>
+    <h2>Sales Invoices</h2>
+    <p class="subtitle">Manage Sales Invoice Master Data.</p>
+  </div>
+</div>
+
+<div class="loading" *ngIf="isLoading">
+  Loading sales invoices...
+</div>
+
+<div class="empty-state" *ngIf="!isLoading && invoices.length === 0 && !selectedInvoice">
+  <p>No sales invoices configured yet.</p>
+  <button class="btn-secondary" style="margin-top: 1rem;" (click)="createNew()">Create First Invoice</button>
+</div>
+
+<div class="master-detail-container" *ngIf="!isLoading && (invoices.length > 0 || selectedInvoice)">
+  
+  <!-- Master List -->
+  <div class="master-list glass-card">
+    <div class="master-header">
+      <h3>Invoices</h3>
+      <button class="btn-icon-primary" (click)="createNew()" title="Add New Invoice">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      </button>
+    </div>
+    
+    <div class="list-item" 
+         *ngFor="let inv of invoices" 
+         [class.active]="selectedInvoice?.id === inv.id"
+         (click)="selectInvoice(inv)">
+      <div class="item-name">{{ inv.invoice_number }}</div>
+      <div class="item-meta">
+        <span class="badge gray">{{ inv.invoice_date | date:'shortDate' }}</span>
+        <span class="badge pink">{{ inv.business_partner_name }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail View (Form Mode) -->
+  <div class="detail-view glass-card" *ngIf="selectedInvoice">
+    <div class="detail-header">
+      <div class="header-info">
+        <h3>{{ isNew ? 'New Invoice' : 'Edit Invoice: ' + selectedInvoice.invoice_number }}</h3>
+      </div>
+    </div>
+
+    <div class="detail-body form-grid">
+      
+      <div class="form-group">
+        <label>Invoice Number</label>
+        <input type="text" class="form-control" [(ngModel)]="selectedInvoice.invoice_number" placeholder="e.g. INV-2026-001" />
+      </div>
+
+      <div class="form-group">
+        <label>Financial Year</label>
+        <input type="text" class="form-control" [(ngModel)]="selectedInvoice.financial_year" placeholder="e.g. 2026-27" />
+      </div>
+
+      <div class="form-group">
+        <label>Business Partner</label>
+        <select class="form-control" [(ngModel)]="selectedInvoice.business_partner_id">
+          <option [ngValue]="0" disabled>Select Partner</option>
+          <option *ngFor="let bp of businessPartners" [ngValue]="bp.id">{{ bp.name }}</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Invoice Date</label>
+        <input type="date" class="form-control" [(ngModel)]="selectedInvoice.invoice_date" />
+      </div>
+
+      <div class="form-group">
+        <label>Currency</label>
+        <input type="text" class="form-control" [(ngModel)]="selectedInvoice.currency" placeholder="e.g. USD, INR" />
+      </div>
+
+      <div class="form-group">
+        <label>Amount</label>
+        <input type="number" class="form-control" [(ngModel)]="selectedInvoice.amount" />
+      </div>
+
+    </div>
+    
+    <div class="form-actions">
+      <button class="btn-primary" (click)="save()">Save Invoice</button>
+      <button class="btn-secondary" (click)="cancel()">Cancel</button>
+    </div>
+  </div>
+
+</div>
