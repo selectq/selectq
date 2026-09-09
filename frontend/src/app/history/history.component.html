@@ -1,0 +1,46 @@
+<div class="glass-card">
+  <div class="header-action">
+    <h2>Statement History</h2>
+  </div>
+  
+  <p class="subtitle">View previously uploaded bank statements and their classifications.</p>
+
+  <div class="loading" *ngIf="isLoading">
+    Loading history...
+  </div>
+
+  <div class="empty-state" *ngIf="!isLoading && imports.length === 0">
+    <p>No statements uploaded yet.</p>
+  </div>
+
+  <div class="table-container" *ngIf="!isLoading && imports.length > 0">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Account No</th>
+          <th>Period</th>
+          <th>Source File</th>
+          <th>Imported At</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let record of imports">
+          <td>#{{ record.id }}</td>
+          <td class="font-mono">{{ record.account_no }}</td>
+          <td>
+            <span class="badge blue">{{ record.statement_from }}</span> 
+            <span style="color: var(--text-secondary); font-size: 0.8rem; margin: 0 4px;">to</span> 
+            <span class="badge blue">{{ record.statement_to }}</span>
+          </td>
+          <td>{{ record.source_file }}</td>
+          <td style="color: var(--text-secondary)">{{ record.imported_at | date:'medium' }}</td>
+          <td>
+            <button class="btn-view" (click)="viewTransactions(record.id)">View Transactions</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

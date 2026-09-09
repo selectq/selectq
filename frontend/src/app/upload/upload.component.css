@@ -1,0 +1,147 @@
+.upload-card {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+h2 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+}
+
+.upload-zone {
+  border: 2px dashed var(--surface-border);
+  border-radius: 16px;
+  padding: 3rem 2rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  position: relative;
+  background: rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.upload-zone:hover {
+  border-color: var(--primary-color);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.upload-zone.has-file {
+  border-color: var(--success);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.file-input {
+  display: none;
+}
+
+.upload-content {
+  cursor: pointer;
+}
+
+.upload-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.file-type {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 0.5rem;
+}
+
+.file-name {
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.btn-change {
+  background: transparent;
+  border: 1px solid var(--surface-border);
+  color: var(--text-primary);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-change:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.alert {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  border-radius: 12px;
+}
+
+.alert.error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+.alert.success {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.stat-box {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 1rem;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.stat-box .label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.stat-box .value {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.success-text {
+  color: #6ee7b7;
+}
+
+.period {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid var(--surface-border);
+  padding: 0.75rem 1.5rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

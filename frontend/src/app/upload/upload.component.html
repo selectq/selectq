@@ -1,0 +1,57 @@
+<div class="glass-card upload-card">
+  <h2>Upload Bank Statement</h2>
+  <p class="subtitle">Upload your HDFC bank statement (.xlsx) to automatically classify transactions.</p>
+
+  <div class="upload-zone" [class.has-file]="selectedFile">
+    <input type="file" #fileInput (change)="onFileSelected($event)" accept=".xlsx" class="file-input" />
+    
+    <div class="upload-content" *ngIf="!selectedFile; else fileSelectedTemplate" (click)="fileInput.click()">
+      <div class="upload-icon">📄</div>
+      <p>Click to select or drag and drop</p>
+      <span class="file-type">.xlsx files only</span>
+    </div>
+
+    <ng-template #fileSelectedTemplate>
+      <div class="file-info">
+        <div class="upload-icon">📊</div>
+        <p class="file-name">{{ selectedFile!.name }}</p>
+        <button class="btn-change" (click)="fileInput.click()">Change File</button>
+      </div>
+    </ng-template>
+  </div>
+
+  <div class="actions">
+    <button 
+      class="btn-primary" 
+      [disabled]="!selectedFile || isUploading"
+      (click)="onUpload()"
+    >
+      {{ isUploading ? 'Processing...' : 'Upload & Classify' }}
+    </button>
+  </div>
+
+  <div class="alert error" *ngIf="errorMessage">
+    {{ errorMessage }}
+  </div>
+
+  <div class="alert success" *ngIf="uploadSuccess">
+    <h3>Upload Successful!</h3>
+    <div class="summary-grid">
+      <div class="stat-box">
+        <span class="label">Total Transactions</span>
+        <span class="value">{{ uploadSuccess.total }}</span>
+      </div>
+      <div class="stat-box">
+        <span class="label">Classified</span>
+        <span class="value success-text">{{ uploadSuccess.classified }}</span>
+      </div>
+      <div class="stat-box">
+        <span class="label">Account</span>
+        <span class="value">{{ uploadSuccess.account }}</span>
+      </div>
+    </div>
+    <p class="period">Period: {{ uploadSuccess.period }}</p>
+    
+    <button class="btn-secondary" (click)="goToHistory()">View History</button>
+  </div>
+</div>

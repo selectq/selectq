@@ -1,0 +1,57 @@
+<div class="header-action">
+  <div>
+    <h2>Business Partners</h2>
+    <p class="subtitle">Manage clients and vendors (Master Data).</p>
+  </div>
+  <button class="btn-primary" (click)="addNew()">+ Add New Partner</button>
+</div>
+
+<div class="loading" *ngIf="isLoading">
+  Loading business partners...
+</div>
+
+<div class="empty-state" *ngIf="!isLoading && partners.length === 0">
+  <p>No business partners configured yet.</p>
+  <button class="btn-secondary" style="margin-top: 1rem;" (click)="addNew()">Create First Partner</button>
+</div>
+
+<div class="master-detail-container" *ngIf="!isLoading && partners.length > 0">
+  
+  <!-- Master List -->
+  <div class="master-list glass-card">
+    <div class="list-item" 
+         *ngFor="let p of partners" 
+         [class.active]="selectedPartner?.id === p.id"
+         (click)="selectPartner(p)">
+      <div class="item-name">{{ p.name }}</div>
+      <div class="item-meta">
+        <span class="badge gray">{{ p.invoice_currency }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail View -->
+  <div class="detail-view glass-card" *ngIf="selectedPartner">
+    <div class="detail-header">
+      <div class="avatar">{{ selectedPartner.name.charAt(0).toUpperCase() }}</div>
+      <div class="header-info">
+        <h3>{{ selectedPartner.name }}</h3>
+        <span class="badge pink">{{ selectedPartner.invoice_currency }} Billing</span>
+      </div>
+      <button class="btn-secondary" style="margin-left: auto;" (click)="editPartner(selectedPartner.id!)">Edit</button>
+    </div>
+
+    <div class="detail-body">
+      <div class="info-group">
+        <label>Billing Address</label>
+        <div class="info-value address">{{ selectedPartner.billing_address || 'Not provided' }}</div>
+      </div>
+
+      <div class="info-group">
+        <label>Tax Information</label>
+        <div class="info-value font-mono">{{ selectedPartner.tax_information || 'Not provided' }}</div>
+      </div>
+    </div>
+  </div>
+
+</div>

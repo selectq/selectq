@@ -1,0 +1,38 @@
+<div class="app-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo"></div>
+      <h2>Classifier Pro</h2>
+    </div>
+    
+    <nav class="nav-menu">
+      <a routerLink="/upload" routerLinkActive="active" class="nav-item">
+        <span class="icon">📤</span>
+        <span>Upload Statement</span>
+      </a>
+      <a routerLink="/history" routerLinkActive="active" class="nav-item">
+        <span class="icon">🗂️</span>
+        <span>History</span>
+      </a>
+      <a routerLink="/business-partners" routerLinkActive="active" class="nav-item">
+        <span class="icon">👥</span>
+        <span>Business Partners</span>
+      </a>
+    </nav>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="main-content">
+    <header class="topbar">
+      <div class="welcome-text">
+        <h1>Bank Statement Classification</h1>
+        <p>Automate your accounting effortlessly.</p>
+      </div>
+    </header>
+    
+    <div class="content-wrapper">
+      <router-outlet></router-outlet>
+    </div>
+  </main>
+</div>

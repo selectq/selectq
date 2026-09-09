@@ -1,0 +1,51 @@
+<div class="glass-card form-card">
+  <h2>{{ isEditMode ? 'Edit Business Partner' : 'New Business Partner' }}</h2>
+  <p class="subtitle">{{ isEditMode ? 'Update the details for this client or vendor.' : 'Configure a new client or vendor.' }}</p>
+
+  <form [formGroup]="bpForm" (ngSubmit)="onSubmit()">
+    <div class="form-group">
+      <label for="name">Business Partner Name *</label>
+      <input id="name" type="text" formControlName="name" placeholder="e.g. Acme Corp" />
+      
+      <!-- Duplicate Warning -->
+      <div class="duplicate-warning" *ngIf="similarPartners.length > 0">
+        <span class="warning-icon">⚠️</span>
+        <div class="warning-content">
+          <strong>Similar partners found:</strong>
+          <ul>
+            <li *ngFor="let p of similarPartners">{{ p.name }}</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="address">Billing Address</label>
+      <textarea id="address" formControlName="billing_address" rows="3" placeholder="123 Business St..."></textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group half">
+        <label for="currency">Invoice Currency *</label>
+        <select id="currency" formControlName="invoice_currency">
+          <option value="USD">USD</option>
+          <option value="INR">INR</option>
+          <option value="GBP">GBP</option>
+          <option value="EUR">EUR</option>
+        </select>
+      </div>
+
+      <div class="form-group half">
+        <label for="tax">Tax Information</label>
+        <input id="tax" type="text" formControlName="tax_information" placeholder="GSTIN / VAT ID / EIN" />
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" class="btn-cancel" (click)="cancel()">Cancel</button>
+      <button type="submit" class="btn-primary" [disabled]="bpForm.invalid || isSubmitting">
+        {{ isSubmitting ? 'Saving...' : 'Save Partner' }}
+      </button>
+    </div>
+  </form>
+</div>
