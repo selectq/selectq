@@ -1,0 +1,59 @@
+<div class="header-action">
+  <div>
+    <h2>Company Profile</h2>
+    <p class="subtitle">Configure your seller/company information for invoices.</p>
+  </div>
+</div>
+
+<div class="loading" *ngIf="isLoading">Loading profile...</div>
+
+<div class="glass-card form-card" *ngIf="!isLoading">
+  <div class="form-header">
+    <h3>Seller Information</h3>
+    <p class="form-subtitle">This information will appear on all generated invoices.</p>
+  </div>
+
+  <div class="form-body form-grid">
+    <div class="form-group full-width">
+      <label>Company Name</label>
+      <input type="text" class="form-control" [(ngModel)]="profile.company_name" placeholder="e.g. Acme Technologies Pvt. Ltd." />
+    </div>
+
+    <div class="form-group full-width">
+      <label>Address</label>
+      <textarea class="form-control" [(ngModel)]="profile.address" rows="3" placeholder="Full billing address..."></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>GSTIN</label>
+      <input type="text" class="form-control" [(ngModel)]="profile.gstin" placeholder="e.g. 29AABCU9603R1ZP" />
+    </div>
+
+    <div class="form-group">
+      <label>PAN</label>
+      <input type="text" class="form-control" [(ngModel)]="profile.pan" placeholder="e.g. AABCU9603R" />
+    </div>
+
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" class="form-control" [(ngModel)]="profile.email" placeholder="accounts@company.com" />
+    </div>
+
+    <div class="form-group">
+      <label>Phone</label>
+      <input type="tel" class="form-control" [(ngModel)]="profile.phone" placeholder="+91 98765 43210" />
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <div class="save-status" *ngIf="saveSuccess">
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+      Saved successfully
+    </div>
+    <button class="btn-primary" (click)="save()" [disabled]="isSaving">
+      {{ isSaving ? 'Saving...' : 'Save Profile' }}
+    </button>
+  </div>
+</div>

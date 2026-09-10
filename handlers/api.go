@@ -313,3 +313,27 @@ func (s *Server) UpdateSalesInvoice(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(updated)
 }
+
+func (s *Server) GetCompanyProfile(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	profile, err := core.GetCompanyProfile(s.DB)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(profile)
+}
+
+func (s *Server) SaveCompanyProfile(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var profile core.CompanyProfile
+	if err := json.NewDecoder(r.Body).Decode(&profile); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := core.SaveCompanyProfile(s.DB, profile); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(profile)
+}

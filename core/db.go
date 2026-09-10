@@ -199,6 +199,18 @@ func createTables(db *sql.DB) error {
 		created_at         DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (sales_invoice_id) REFERENCES sales_invoices(id) ON DELETE CASCADE
 	);
+
+	CREATE TABLE IF NOT EXISTS company_profile (
+		id           INTEGER PRIMARY KEY CHECK (id = 1),
+		company_name TEXT DEFAULT '',
+		address      TEXT DEFAULT '',
+		gstin        TEXT DEFAULT '',
+		pan          TEXT DEFAULT '',
+		email        TEXT DEFAULT '',
+		phone        TEXT DEFAULT ''
+	);
+
+	INSERT OR IGNORE INTO company_profile (id) VALUES (1);
 	`
 	_, err := db.Exec(schema)
 	
@@ -562,4 +574,24 @@ func UpdateSalesInvoice(db *sql.DB, inv SalesInvoice) error {
 	}
 
 	return nil
+}
+
+// GetCompanyProfile fetches the singleton company profile.
+func GetCompanyProfile(db *sql.DB) (CompanyProfile, error) {
+	var p CompanyProfile
+	err := db.QueryRow(`
+		SELECT id, company_name, address, gstin, pan, email, phone
+		FROM company_profile WHERE id = 1
+	`).Scan(&p.ID, &p.CompanyName, &p.Address, &p.GSTIN, &p.PAN, &p.Email, &p.Phone)
+	return p, err
+}
+
+// SaveCompanyProfile updates the singleton company profile.
+func SaveCompanyProfile(db *sql.DB, p CompanyProfile) error {
+	_, err := db.Exec(`
+		UPDATE company_profile
+		SET company_name = ?, address = ?, gstin = ?, pan = ?, email = ?, phone = ?
+		WHERE id = 1
+	`, p.CompanyName, p.Address, p.GSTIN, p.PAN, p.Email, p.Phone)
+	return err
 }

@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ApiService, SalesInvoice, BusinessPartner, InvoiceLineItem } from '../../api.service';
+import { ApiService, SalesInvoice, BusinessPartner, InvoiceLineItem, CompanyProfile } from '../../api.service';
 import { AgGridAngular } from 'ag-grid-angular';
 import { ColDef, ValueFormatterParams } from 'ag-grid-community';
 
@@ -19,6 +19,7 @@ export class ListComponent implements OnInit {
   isLoading = true;
   isSaving = false;
   isDarkMode = true;
+  companyProfile: CompanyProfile | null = null;
 
   activeTab: 'view' | 'create' = 'view';
   isEditMode = false;
@@ -97,6 +98,10 @@ export class ListComponent implements OnInit {
     observer.observe(document.body, { attributes: true, attributeFilter: ['data-theme'] });
 
     this.loadData();
+    this.api.getCompanyProfile().subscribe({
+      next: (p) => this.companyProfile = p,
+      error: (err) => console.error('Failed to load company profile', err)
+    });
   }
 
   loadData() {
@@ -268,6 +273,11 @@ export class ListComponent implements OnInit {
       try { return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); }
       catch { return d; }
     };
+    const esc = (s: string) => (s || '').replace(/\n/g, '<br/>');
+
+    // Look up the business partner for full details
+    const bp = this.businessPartners.find(p => p.id === inv.business_partner_id);
+    const cp = this.companyProfile;
 
     // Build line item rows
     let lineRows = '';
@@ -285,8 +295,6 @@ export class ListComponent implements OnInit {
       </tr>`;
     });
 
-    const colCount = isInr ? 8 : 5;
-
     const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -297,16 +305,20 @@ export class ListComponent implements OnInit {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Inter', sans-serif; color: #1e293b; padding: 40px; background: #fff; }
     .invoice-container { max-width: 800px; margin: 0 auto; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; padding-bottom: 24px; border-bottom: 3px solid #6366f1; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; padding-bottom: 20px; border-bottom: 3px solid #6366f1; }
     .header-left h1 { font-size: 28px; color: #6366f1; font-weight: 700; letter-spacing: -0.5px; }
-    .header-left p { color: #64748b; font-size: 13px; margin-top: 4px; }
+    .header-left .company-name { font-size: 15px; font-weight: 600; color: #1e293b; margin-top: 6px; }
+    .header-left .company-detail { font-size: 12px; color: #64748b; margin-top: 2px; line-height: 1.5; }
     .header-right { text-align: right; }
     .header-right .inv-num { font-size: 18px; font-weight: 700; color: #1e293b; }
     .header-right .inv-meta { font-size: 13px; color: #64748b; margin-top: 4px; }
-    .details { display: flex; justify-content: space-between; margin-bottom: 32px; }
-    .detail-block { flex: 1; }
-    .detail-block h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 8px; font-weight: 600; }
-    .detail-block p { font-size: 14px; color: #334155; line-height: 1.6; }
+    .parties { display: flex; justify-content: space-between; margin-bottom: 28px; gap: 2rem; }
+    .party-block { flex: 1; }
+    .party-block h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: #94a3b8; margin-bottom: 8px; font-weight: 700; }
+    .party-block .name { font-size: 14px; font-weight: 600; color: #1e293b; }
+    .party-block .detail { font-size: 12px; color: #475569; line-height: 1.6; margin-top: 4px; }
+    .party-block .tax-label { font-size: 11px; color: #94a3b8; font-weight: 600; margin-top: 6px; }
+    .party-block .tax-value { font-size: 12px; color: #334155; font-weight: 500; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
     thead { background: #f1f5f9; }
     th { padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; font-weight: 600; text-align: left; border-bottom: 2px solid #e2e8f0; }
@@ -329,7 +341,9 @@ export class ListComponent implements OnInit {
     <div class="header">
       <div class="header-left">
         <h1>TAX INVOICE</h1>
-        <p>GST Data Pro Suite</p>
+        ${cp?.company_name ? `<div class="company-name">${cp.company_name}</div>` : ''}
+        ${cp?.address ? `<div class="company-detail">${esc(cp.address)}</div>` : ''}
+        ${cp?.email || cp?.phone ? `<div class="company-detail">${[cp?.email, cp?.phone].filter(Boolean).join(' | ')}</div>` : ''}
       </div>
       <div class="header-right">
         <div class="inv-num">${inv.invoice_number}</div>
@@ -338,14 +352,19 @@ export class ListComponent implements OnInit {
       </div>
     </div>
 
-    <div class="details">
-      <div class="detail-block">
-        <h4>Bill To</h4>
-        <p><strong>${inv.business_partner_name || 'N/A'}</strong></p>
+    <div class="parties">
+      <div class="party-block">
+        <h4>From (Seller)</h4>
+        ${cp?.company_name ? `<div class="name">${cp.company_name}</div>` : '<div class="name">-</div>'}
+        ${cp?.address ? `<div class="detail">${esc(cp.address)}</div>` : ''}
+        ${cp?.gstin ? `<div class="tax-label">GSTIN</div><div class="tax-value">${cp.gstin}</div>` : ''}
+        ${cp?.pan ? `<div class="tax-label">PAN</div><div class="tax-value">${cp.pan}</div>` : ''}
       </div>
-      <div class="detail-block" style="text-align:right">
-        <h4>Currency</h4>
-        <p>${inv.currency}</p>
+      <div class="party-block" style="text-align:right">
+        <h4>Bill To (Buyer)</h4>
+        <div class="name">${bp?.name || inv.business_partner_name || 'N/A'}</div>
+        ${bp?.billing_address ? `<div class="detail">${esc(bp.billing_address)}</div>` : ''}
+        ${bp?.tax_information ? `<div class="tax-label">Tax Info</div><div class="tax-value">${bp.tax_information}</div>` : ''}
       </div>
     </div>
 

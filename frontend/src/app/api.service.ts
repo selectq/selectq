@@ -61,6 +61,16 @@ export interface SalesInvoice {
   line_items?: InvoiceLineItem[];
 }
 
+export interface CompanyProfile {
+  id?: number;
+  company_name: string;
+  address: string;
+  gstin: string;
+  pan: string;
+  email: string;
+  phone: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -125,5 +135,13 @@ export class ApiService {
 
   updateSalesInvoice(id: number, invoice: SalesInvoice): Observable<SalesInvoice> {
     return this.http.put<SalesInvoice>(`${this.baseUrl}/sales-invoices/${id}`, invoice);
+  }
+
+  getCompanyProfile(): Observable<CompanyProfile> {
+    return this.http.get<CompanyProfile>(`${this.baseUrl}/company-profile`);
+  }
+
+  saveCompanyProfile(profile: CompanyProfile): Observable<CompanyProfile> {
+    return this.http.put<CompanyProfile>(`${this.baseUrl}/company-profile`, profile);
   }
 }
