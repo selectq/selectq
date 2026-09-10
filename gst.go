@@ -39,6 +39,7 @@ func main() {
 	api.HandleFunc("/business-partners", srv.CreateBusinessPartner).Methods("POST")
 	api.HandleFunc("/business-partners/{id:[0-9]+}", srv.GetBusinessPartnerByID).Methods("GET")
 	api.HandleFunc("/business-partners/{id:[0-9]+}", srv.UpdateBusinessPartner).Methods("PUT")
+	api.HandleFunc("/business-partners/{id:[0-9]+}", srv.DeleteBusinessPartner).Methods("DELETE")
 	
 	api.HandleFunc("/sales-invoices", srv.GetSalesInvoices).Methods("GET")
 	api.HandleFunc("/sales-invoices", srv.CreateSalesInvoice).Methods("POST")

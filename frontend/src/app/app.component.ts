@@ -12,6 +12,7 @@ import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 export class AppComponent {
   title = 'Bank Statement Classifier';
   isDarkMode = true;
+  isSidebarCollapsed = false;
 
   constructor() {
     const savedTheme = localStorage.getItem('theme');
@@ -19,6 +20,16 @@ export class AppComponent {
       this.isDarkMode = savedTheme === 'dark';
       this.applyTheme();
     }
+
+    const savedSidebar = localStorage.getItem('sidebarCollapsed');
+    if (savedSidebar) {
+      this.isSidebarCollapsed = savedSidebar === 'true';
+    }
+  }
+
+  toggleSidebar() {
+    this.isSidebarCollapsed = !this.isSidebarCollapsed;
+    localStorage.setItem('sidebarCollapsed', String(this.isSidebarCollapsed));
   }
 
   toggleTheme() {

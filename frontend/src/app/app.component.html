@@ -1,36 +1,40 @@
 <div class="app-layout">
   <!-- Sidebar -->
-  <aside class="sidebar">
+  <aside class="sidebar" [class.collapsed]="isSidebarCollapsed">
     <div class="brand">
       <div class="logo"></div>
-      <h2>Classifier Pro</h2>
+      <h2 class="brand-label">Classifier Pro</h2>
     </div>
+
+    <button class="sidebar-toggle" (click)="toggleSidebar()" [title]="isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+      <span class="toggle-icon">{{ isSidebarCollapsed ? '➡' : '⬅' }}</span>
+    </button>
     
     <nav class="nav-menu">
-      <a routerLink="/upload" routerLinkActive="active" class="nav-item">
+      <a routerLink="/upload" routerLinkActive="active" class="nav-item" [attr.data-tooltip]="'Upload Statement'">
         <span class="icon">📤</span>
-        <span>Upload Statement</span>
+        <span class="nav-label">Upload Statement</span>
       </a>
-      <a routerLink="/history" routerLinkActive="active" class="nav-item">
+      <a routerLink="/history" routerLinkActive="active" class="nav-item" [attr.data-tooltip]="'History'">
         <span class="icon">🗂️</span>
-        <span>History</span>
+        <span class="nav-label">History</span>
       </a>
-      <a routerLink="/business-partners" routerLinkActive="active" class="nav-item">
+      <a routerLink="/business-partners" routerLinkActive="active" class="nav-item" [attr.data-tooltip]="'Business Partners'">
         <span class="icon">👥</span>
-        <span>Business Partners</span>
+        <span class="nav-label">Business Partners</span>
       </a>
-      <a routerLink="/sales-invoices" routerLinkActive="active" class="nav-item">
+      <a routerLink="/sales-invoices" routerLinkActive="active" class="nav-item" [attr.data-tooltip]="'Sales Invoices'">
         <span class="icon">🧾</span>
-        <span>Sales Invoices</span>
+        <span class="nav-label">Sales Invoices</span>
       </a>
     </nav>
     
     <div style="flex-grow: 1;"></div>
     
     <div class="theme-toggle-container" style="padding: 1rem;">
-      <button class="theme-toggle-btn" (click)="toggleTheme()" [title]="isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'">
+      <button class="theme-toggle-btn" (click)="toggleTheme()" [title]="isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'" [attr.data-tooltip]="isDarkMode ? 'Light Mode' : 'Dark Mode'">
         <span class="icon">{{ isDarkMode ? '🌞' : '🌙' }}</span>
-        <span>{{ isDarkMode ? 'Light Mode' : 'Dark Mode' }}</span>
+        <span class="nav-label">{{ isDarkMode ? 'Light Mode' : 'Dark Mode' }}</span>
       </button>
     </div>
   </aside>

@@ -95,6 +95,10 @@ export class ApiService {
     return this.http.put<BusinessPartner>(`${this.baseUrl}/business-partners/${id}`, partner);
   }
 
+  deleteBusinessPartner(id: number): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/business-partners/${id}`);
+  }
+
   getSalesInvoices(): Observable<SalesInvoice[]> {
     return this.http.get<SalesInvoice[]>(`${this.baseUrl}/sales-invoices`);
   }

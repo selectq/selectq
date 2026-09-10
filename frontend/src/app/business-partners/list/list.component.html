@@ -9,12 +9,12 @@
   Loading business partners...
 </div>
 
-<div class="empty-state" *ngIf="!isLoading && partners.length === 0">
+<div class="empty-state" *ngIf="!isLoading && partners.length === 0 && !isEditing">
   <p>No business partners configured yet.</p>
   <button class="btn-secondary" style="margin-top: 1rem;" (click)="addNew()">Create First Partner</button>
 </div>
 
-<div class="master-detail-container" *ngIf="!isLoading && partners.length > 0">
+<div class="master-detail-container" *ngIf="!isLoading && (partners.length > 0 || isEditing)">
   
   <!-- Master List -->
   <div class="master-list glass-card">
@@ -27,7 +27,7 @@
     
     <div class="list-item" 
          *ngFor="let p of partners" 
-         [class.active]="selectedPartner?.id === p.id"
+         [class.active]="selectedPartner?.id === p.id && !isEditing"
          (click)="selectPartner(p)">
       <div class="item-name">{{ p.name }}</div>
       <div class="item-meta">
@@ -36,17 +36,22 @@
     </div>
   </div>
 
-  <!-- Detail View -->
-  <div class="detail-view glass-card" *ngIf="selectedPartner">
+  <!-- Detail View (read-only) -->
+  <div class="detail-view glass-card" *ngIf="selectedPartner && !isEditing">
     <div class="detail-header">
       <div class="avatar">{{ selectedPartner.name.charAt(0).toUpperCase() }}</div>
       <div class="header-info">
         <h3>{{ selectedPartner.name }}</h3>
         <span class="badge pink">{{ selectedPartner.invoice_currency }} Billing</span>
       </div>
-      <button class="btn-icon" style="margin-left: auto;" (click)="editPartner(selectedPartner.id!)" title="Edit Partner">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-      </button>
+      <div class="detail-actions">
+        <button class="btn-icon" (click)="editPartner()" title="Edit Partner">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+        </button>
+        <button class="btn-icon btn-icon-danger" (click)="confirmDelete()" title="Delete Partner">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        </button>
+      </div>
     </div>
 
     <div class="detail-body">
@@ -59,6 +64,73 @@
         <label>Tax Information</label>
         <div class="info-value font-mono">{{ selectedPartner.tax_information || 'Not provided' }}</div>
       </div>
+    </div>
+  </div>
+
+  <!-- Inline Edit/Create Form -->
+  <div class="detail-view glass-card detail-form" *ngIf="isEditing">
+    <div class="detail-header">
+      <div class="avatar form-avatar">{{ formAvatarLetter }}</div>
+      <div class="header-info">
+        <h3>{{ isEditMode ? 'Edit Partner' : 'New Partner' }}</h3>
+        <span class="badge blue">{{ isEditMode ? 'Editing' : 'Creating' }}</span>
+      </div>
+    </div>
+
+    <form [formGroup]="bpForm" (ngSubmit)="onSubmit()" class="detail-body">
+      <div class="form-group">
+        <label for="name">Business Partner Name *</label>
+        <input id="name" type="text" formControlName="name" placeholder="e.g. Acme Corp" />
+        
+        <!-- Duplicate Warning -->
+        <div class="duplicate-warning" *ngIf="similarPartners.length > 0">
+          <span class="warning-icon">⚠️</span>
+          <div class="warning-content">
+            <strong>Similar partners found:</strong>
+            <ul>
+              <li *ngFor="let p of similarPartners">{{ p.name }}</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="address">Billing Address</label>
+        <textarea id="address" formControlName="billing_address" rows="3" placeholder="123 Business St..."></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group half">
+          <label for="currency">Invoice Currency *</label>
+          <select id="currency" formControlName="invoice_currency">
+            <option value="USD">USD</option>
+            <option value="INR">INR</option>
+            <option value="GBP">GBP</option>
+            <option value="EUR">EUR</option>
+          </select>
+        </div>
+
+        <div class="form-group half">
+          <label for="tax">Tax Information</label>
+          <input id="tax" type="text" formControlName="tax_information" placeholder="GSTIN / VAT ID / EIN" />
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn-cancel" (click)="cancelEdit()">Cancel</button>
+        <button type="submit" class="btn-primary" [disabled]="bpForm.invalid || isSubmitting">
+          {{ isSubmitting ? 'Saving...' : (isEditMode ? 'Update Partner' : 'Save Partner') }}
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Placeholder when nothing selected -->
+  <div class="detail-view detail-placeholder glass-card" *ngIf="!selectedPartner && !isEditing">
+    <div class="placeholder-content">
+      <span class="placeholder-icon">👥</span>
+      <h3>Select a partner</h3>
+      <p>Choose a business partner from the list or create a new one.</p>
     </div>
   </div>
 

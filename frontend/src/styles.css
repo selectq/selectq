@@ -63,6 +63,14 @@ body {
   flex-direction: column;
   padding: 2rem 0;
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: visible;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.sidebar.collapsed {
+  width: 72px;
 }
 
 .brand {

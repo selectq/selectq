@@ -1,3 +1,32 @@
+/* Sidebar Toggle Button */
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0 auto 1.5rem auto;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--surface-border);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.85rem;
+}
+
+.sidebar-toggle:hover {
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.toggle-icon {
+  transition: transform 0.3s ease;
+  line-height: 1;
+}
+
+/* Theme Toggle Button */
 .theme-toggle-btn {
   display: flex;
   align-items: center;
@@ -13,9 +42,96 @@
   font-weight: 500;
   font-family: inherit;
   font-size: 1rem;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .theme-toggle-btn:hover {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
+}
+
+/* Nav label transitions */
+.nav-label,
+.brand-label {
+  transition: opacity 0.25s ease, width 0.3s ease;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* ---- Collapsed state ---- */
+:host .sidebar.collapsed .nav-label,
+:host .sidebar.collapsed .brand-label {
+  opacity: 0;
+  width: 0;
+  display: none;
+}
+
+/* Tooltip for collapsed sidebar items */
+:host .sidebar.collapsed .nav-item,
+:host .sidebar.collapsed .theme-toggle-btn {
+  position: relative;
+  justify-content: center;
+  gap: 0;
+  padding: 0.875rem 0;
+}
+
+:host .sidebar.collapsed .nav-item::after,
+:host .sidebar.collapsed .theme-toggle-btn::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%) scale(0.9);
+  background: #1e293b;
+  color: #f8fafc;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  z-index: 1000;
+  letter-spacing: 0.2px;
+}
+
+:host .sidebar.collapsed .nav-item::before,
+:host .sidebar.collapsed .theme-toggle-btn::before {
+  content: '';
+  position: absolute;
+  left: calc(100% + 4px);
+  top: 50%;
+  transform: translateY(-50%);
+  border: 5px solid transparent;
+  border-right-color: #1e293b;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 1000;
+}
+
+:host .sidebar.collapsed .nav-item:hover::after,
+:host .sidebar.collapsed .theme-toggle-btn:hover::after {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+
+:host .sidebar.collapsed .nav-item:hover::before,
+:host .sidebar.collapsed .theme-toggle-btn:hover::before {
+  opacity: 1;
+}
+
+/* Collapsed brand adjustments */
+:host .sidebar.collapsed .brand {
+  justify-content: center;
+  padding: 0;
+}
+
+/* Collapsed nav icon centering */
+:host .sidebar.collapsed .nav-item .icon,
+:host .sidebar.collapsed .theme-toggle-btn .icon {
+  font-size: 1.3rem;
 }

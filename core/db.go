@@ -293,6 +293,12 @@ func UpdateBusinessPartner(db *sql.DB, p BusinessPartner) error {
 	return err
 }
 
+// DeleteBusinessPartner deletes a business partner by ID.
+func DeleteBusinessPartner(db *sql.DB, id int) error {
+	_, err := db.Exec(`DELETE FROM business_partners WHERE id = ?`, id)
+	return err
+}
+
 // GetBusinessPartnerByID fetches a single business partner by ID.
 func GetBusinessPartnerByID(db *sql.DB, id int) (BusinessPartner, error) {
 	var p BusinessPartner
