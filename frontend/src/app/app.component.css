@@ -1,29 +1,105 @@
+/* ============================================
+   Sidebar — Professional Design System
+   ============================================ */
+
+/* Nav Icon Wrapper */
+.nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  transition: all 0.25s ease;
+}
+
+.nav-item .nav-icon {
+  background: transparent;
+}
+
+.nav-item:hover .nav-icon {
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--primary-color);
+}
+
+.nav-item.active .nav-icon {
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--primary-color);
+}
+
+/* Section Label */
+.nav-section-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--text-secondary);
+  opacity: 0.5;
+  padding: 0 1.75rem;
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+}
+
+/* Brand Subtitle */
+.brand-text {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.brand-sub {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+  padding: 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: var(--surface-border);
+  margin: 0.5rem 0.5rem;
+}
+
 /* Sidebar Toggle Button */
 .sidebar-toggle {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  margin: 0 auto 1.5rem auto;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--surface-border);
+  gap: 1rem;
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  background: transparent;
+  border: none;
   color: var(--text-secondary);
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 0.85rem;
+  transition: all 0.25s ease;
+  font-weight: 500;
+  font-family: inherit;
+  font-size: 0.875rem;
+  white-space: nowrap;
 }
 
 .sidebar-toggle:hover {
-  background: rgba(99, 102, 241, 0.15);
-  color: var(--primary-color);
-  border-color: var(--primary-color);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
 }
 
 .toggle-icon {
-  transition: transform 0.3s ease;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   line-height: 1;
+}
+
+.toggle-icon.rotated {
+  transform: rotate(180deg);
 }
 
 /* Theme Toggle Button */
@@ -32,16 +108,16 @@
   align-items: center;
   gap: 1rem;
   width: 100%;
-  padding: 0.875rem 1rem;
+  padding: 0.7rem 0.85rem;
   background: transparent;
-  border: 1px solid var(--surface-border);
+  border: none;
   color: var(--text-secondary);
-  border-radius: 12px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.25s ease;
   font-weight: 500;
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 0.875rem;
   overflow: hidden;
   white-space: nowrap;
 }
@@ -54,14 +130,16 @@
 /* Nav label transitions */
 .nav-label,
 .brand-label {
-  transition: opacity 0.25s ease, width 0.3s ease;
+  transition: opacity 0.2s ease, width 0.25s ease;
   white-space: nowrap;
   overflow: hidden;
 }
 
 /* ---- Collapsed state ---- */
 :host .sidebar.collapsed .nav-label,
-:host .sidebar.collapsed .brand-label {
+:host .sidebar.collapsed .brand-label,
+:host .sidebar.collapsed .brand-text,
+:host .sidebar.collapsed .nav-section-label {
   opacity: 0;
   width: 0;
   display: none;
@@ -69,58 +147,63 @@
 
 /* Tooltip for collapsed sidebar items */
 :host .sidebar.collapsed .nav-item,
-:host .sidebar.collapsed .theme-toggle-btn {
+:host .sidebar.collapsed .theme-toggle-btn,
+:host .sidebar.collapsed .sidebar-toggle {
   position: relative;
   justify-content: center;
   gap: 0;
-  padding: 0.875rem 0;
+  padding: 0.7rem 0;
 }
 
 :host .sidebar.collapsed .nav-item::after,
-:host .sidebar.collapsed .theme-toggle-btn::after {
+:host .sidebar.collapsed .theme-toggle-btn::after,
+:host .sidebar.collapsed .sidebar-toggle::after {
   content: attr(data-tooltip);
   position: absolute;
-  left: calc(100% + 12px);
+  left: calc(100% + 14px);
   top: 50%;
-  transform: translateY(-50%) scale(0.9);
-  background: #1e293b;
-  color: #f8fafc;
-  padding: 0.45rem 0.85rem;
+  transform: translateY(-50%) scale(0.92);
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 0.5rem 0.9rem;
   border-radius: 8px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 500;
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255,255,255,0.06);
   z-index: 1000;
   letter-spacing: 0.2px;
 }
 
 :host .sidebar.collapsed .nav-item::before,
-:host .sidebar.collapsed .theme-toggle-btn::before {
+:host .sidebar.collapsed .theme-toggle-btn::before,
+:host .sidebar.collapsed .sidebar-toggle::before {
   content: '';
   position: absolute;
-  left: calc(100% + 4px);
+  left: calc(100% + 6px);
   top: 50%;
   transform: translateY(-50%);
   border: 5px solid transparent;
-  border-right-color: #1e293b;
+  border-right-color: #0f172a;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.15s ease;
   z-index: 1000;
 }
 
 :host .sidebar.collapsed .nav-item:hover::after,
-:host .sidebar.collapsed .theme-toggle-btn:hover::after {
+:host .sidebar.collapsed .theme-toggle-btn:hover::after,
+:host .sidebar.collapsed .sidebar-toggle:hover::after {
   opacity: 1;
   transform: translateY(-50%) scale(1);
 }
 
 :host .sidebar.collapsed .nav-item:hover::before,
-:host .sidebar.collapsed .theme-toggle-btn:hover::before {
+:host .sidebar.collapsed .theme-toggle-btn:hover::before,
+:host .sidebar.collapsed .sidebar-toggle:hover::before {
   opacity: 1;
 }
 
@@ -130,8 +213,10 @@
   padding: 0;
 }
 
-/* Collapsed nav icon centering */
-:host .sidebar.collapsed .nav-item .icon,
-:host .sidebar.collapsed .theme-toggle-btn .icon {
-  font-size: 1.3rem;
+:host .sidebar.collapsed .sidebar-divider {
+  margin: 0.5rem 0.75rem;
+}
+
+:host .sidebar.collapsed .sidebar-footer {
+  padding: 0 0.5rem;
 }

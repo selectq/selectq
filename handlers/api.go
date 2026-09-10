@@ -157,6 +157,12 @@ func (s *Server) DeleteBusinessPartner(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := core.DeleteBusinessPartner(s.DB, id); err != nil {
+		// Check if it's a referential integrity error
+		if len(err.Error()) > 14 && err.Error()[:14] == "Cannot delete:" {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

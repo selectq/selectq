@@ -25,6 +25,11 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		return nil, fmt.Errorf("open db: %w", err)
 	}
 
+	// Enable foreign key enforcement — SQLite has this OFF by default.
+	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		return nil, fmt.Errorf("enable foreign keys: %w", err)
+	}
+
 	if err := createTables(db); err != nil {
 		return nil, fmt.Errorf("create tables: %w", err)
 	}
@@ -294,8 +299,41 @@ func UpdateBusinessPartner(db *sql.DB, p BusinessPartner) error {
 }
 
 // DeleteBusinessPartner deletes a business partner by ID.
+// It refuses deletion if there are linked transactions or sales invoices.
 func DeleteBusinessPartner(db *sql.DB, id int) error {
-	_, err := db.Exec(`DELETE FROM business_partners WHERE id = ?`, id)
+	// Check for linked bank transactions
+	var txnCount int
+	err := db.QueryRow(`SELECT COUNT(*) FROM bank_transactions WHERE business_partner_id = ?`, id).Scan(&txnCount)
+	if err != nil {
+		return fmt.Errorf("checking transactions: %w", err)
+	}
+
+	// Check for linked sales invoices
+	var invCount int
+	err = db.QueryRow(`SELECT COUNT(*) FROM sales_invoices WHERE business_partner_id = ?`, id).Scan(&invCount)
+	if err != nil {
+		return fmt.Errorf("checking invoices: %w", err)
+	}
+
+	if txnCount > 0 || invCount > 0 {
+		parts := []string{}
+		if txnCount > 0 {
+			parts = append(parts, fmt.Sprintf("%d transaction(s)", txnCount))
+		}
+		if invCount > 0 {
+			parts = append(parts, fmt.Sprintf("%d sales invoice(s)", invCount))
+		}
+		msg := "Cannot delete: partner is linked to "
+		for i, p := range parts {
+			if i > 0 {
+				msg += " and "
+			}
+			msg += p
+		}
+		return fmt.Errorf(msg)
+	}
+
+	_, err = db.Exec(`DELETE FROM business_partners WHERE id = ?`, id)
 	return err
 }
 

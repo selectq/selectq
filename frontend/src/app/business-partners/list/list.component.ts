@@ -169,7 +169,8 @@ export class ListComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         console.error('Failed to delete partner', err);
-        alert('Failed to delete partner.');
+        const serverMsg = err.error?.error || err.error;
+        alert(typeof serverMsg === 'string' ? serverMsg : 'Failed to delete partner.');
       }
     });
   }
