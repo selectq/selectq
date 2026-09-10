@@ -36,13 +36,39 @@ export class ListComponent implements OnInit {
     return this.formInvoice.currency === 'INR';
   }
 
+  get selectedBPContacts() {
+    const bp = this.businessPartners.find(p => p.id === this.formInvoice.business_partner_id);
+    return bp?.contacts || [];
+  }
+
+  onBusinessPartnerChange() {
+    const contacts = this.selectedBPContacts;
+    if (contacts.length > 0) {
+      const primary = contacts.find(c => c.is_primary) || contacts[0];
+      this.formInvoice.contact_id = primary.id;
+    } else {
+      this.formInvoice.contact_id = undefined;
+    }
+  }
+
+  onDateChange() {
+    if (this.formInvoice.invoice_date && this.formInvoice.due_in_days !== undefined) {
+      const date = new Date(this.formInvoice.invoice_date);
+      date.setDate(date.getDate() + this.formInvoice.due_in_days);
+      this.formInvoice.due_date = date.toISOString().split('T')[0];
+    } else {
+      this.formInvoice.due_date = this.formInvoice.invoice_date;
+    }
+  }
+
   // AG Grid Column Definitions
   public columnDefs: ColDef[] = [
     { field: 'invoice_number', headerName: 'Invoice #', flex: 1, sortable: true, filter: true },
     { field: 'financial_year', headerName: 'FY', width: 110, sortable: true, filter: true },
     { field: 'business_partner_name', headerName: 'Business Partner', flex: 1.5, sortable: true, filter: true },
-    { field: 'invoice_date', headerName: 'Date', width: 130, sortable: true, filter: true },
-    { field: 'currency', headerName: 'Currency', width: 110, sortable: true, filter: true },
+    { field: 'invoice_date', headerName: 'Date', width: 120, sortable: true, filter: true },
+    { field: 'due_date', headerName: 'Due Date', width: 120, sortable: true, filter: true },
+    { field: 'currency', headerName: 'Currency', width: 100, sortable: true, filter: true },
     {
       field: 'amount', headerName: 'Amount', width: 140, sortable: true,
       valueFormatter: (params: ValueFormatterParams) => {
@@ -132,6 +158,7 @@ export class ListComponent implements OnInit {
     this.lineItems = [];
     this.isEditMode = false;
     this.recalcTotals();
+    this.onDateChange();
     this.activeTab = 'create';
   }
 
@@ -140,6 +167,7 @@ export class ListComponent implements OnInit {
     this.lineItems = (inv.line_items || []).map(li => ({ ...li }));
     this.isEditMode = true;
     this.recalcTotals();
+    this.onDateChange();
     this.activeTab = 'create';
   }
 
@@ -255,6 +283,7 @@ export class ListComponent implements OnInit {
       financial_year: '2026-27',
       business_partner_id: 0,
       invoice_date: new Date().toISOString().split('T')[0],
+      due_in_days: 0,
       currency: 'INR',
       amount: 0,
       line_items: []
@@ -278,6 +307,8 @@ export class ListComponent implements OnInit {
     // Look up the business partner for full details
     const bp = this.businessPartners.find(p => p.id === inv.business_partner_id);
     const cp = this.companyProfile;
+
+    const contact = bp?.contacts?.find(c => c.id === inv.contact_id);
 
     // Build line item rows
     let lineRows = '';
@@ -349,6 +380,7 @@ export class ListComponent implements OnInit {
         <div class="inv-num">${inv.invoice_number}</div>
         <div class="inv-meta">Date: ${fmtDate(inv.invoice_date)}</div>
         <div class="inv-meta">FY: ${inv.financial_year}</div>
+        ${inv.due_date ? `<div class="inv-meta">Due Date: ${fmtDate(inv.due_date)}</div>` : ''}
       </div>
     </div>
 
@@ -363,6 +395,7 @@ export class ListComponent implements OnInit {
       <div class="party-block" style="text-align:right">
         <h4>Bill To (Buyer)</h4>
         <div class="name">${bp?.name || inv.business_partner_name || 'N/A'}</div>
+        ${contact ? `<div class="detail" style="font-weight:600;">Attn: ${contact.name}</div>` : ''}
         ${bp?.billing_address ? `<div class="detail">${esc(bp.billing_address)}</div>` : ''}
         ${bp?.tax_information ? `<div class="tax-label">Tax Info</div><div class="tax-value">${bp.tax_information}</div>` : ''}
       </div>

@@ -69,15 +69,35 @@
 
       <div class="form-group">
         <label>Business Partner <span class="required">*</span></label>
-        <select class="form-control" [(ngModel)]="formInvoice.business_partner_id">
+        <select class="form-control" [(ngModel)]="formInvoice.business_partner_id" (ngModelChange)="onBusinessPartnerChange()">
           <option [ngValue]="0" disabled>Select Partner</option>
           <option *ngFor="let bp of businessPartners" [ngValue]="bp.id">{{ bp.name }}</option>
         </select>
       </div>
 
+      <div class="form-group" *ngIf="selectedBPContacts.length > 0">
+        <label>Contact Person</label>
+        <select class="form-control" [(ngModel)]="formInvoice.contact_id">
+          <option [ngValue]="undefined">None</option>
+          <option *ngFor="let c of selectedBPContacts" [ngValue]="c.id">{{ c.name }} <span *ngIf="c.is_primary">(Primary)</span></option>
+        </select>
+      </div>
+
       <div class="form-group">
         <label>Invoice Date <span class="required">*</span></label>
-        <input type="date" class="form-control" [(ngModel)]="formInvoice.invoice_date" />
+        <input type="date" class="form-control" [(ngModel)]="formInvoice.invoice_date" (ngModelChange)="onDateChange()" />
+      </div>
+
+      <div class="form-group">
+        <label>Payment Due In (Days)</label>
+        <input type="number" class="form-control" [(ngModel)]="formInvoice.due_in_days" (ngModelChange)="onDateChange()" min="0" placeholder="e.g. 30" />
+      </div>
+
+      <div class="form-group">
+        <label>Due Date</label>
+        <div class="form-control" style="background: #f1f5f9; color: #64748b; line-height: 24px;">
+          {{ formInvoice.due_date || 'Auto-calculated on save' }}
+        </div>
       </div>
 
       <div class="form-group">

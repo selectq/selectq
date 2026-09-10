@@ -175,16 +175,30 @@ func createTables(db *sql.DB) error {
 		created_at       DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 
+	CREATE TABLE IF NOT EXISTS business_partner_contacts (
+		id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+		business_partner_id INTEGER NOT NULL,
+		name                TEXT NOT NULL,
+		email               TEXT DEFAULT '',
+		phone               TEXT DEFAULT '',
+		is_primary          BOOLEAN DEFAULT 0,
+		FOREIGN KEY (business_partner_id) REFERENCES business_partners(id) ON DELETE CASCADE
+	);
+
 	CREATE TABLE IF NOT EXISTS sales_invoices (
 		id                  INTEGER PRIMARY KEY AUTOINCREMENT,
 		invoice_number      TEXT NOT NULL UNIQUE,
 		financial_year      TEXT NOT NULL,
 		business_partner_id INTEGER NOT NULL,
+		contact_id          INTEGER,
 		invoice_date        TEXT NOT NULL,
+		due_in_days         INTEGER DEFAULT 0,
+		due_date            TEXT DEFAULT '',
 		currency            TEXT NOT NULL,
 		amount              REAL NOT NULL DEFAULT 0,
 		created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
-		FOREIGN KEY (business_partner_id) REFERENCES business_partners(id)
+		FOREIGN KEY (business_partner_id) REFERENCES business_partners(id),
+		FOREIGN KEY (contact_id) REFERENCES business_partner_contacts(id)
 	);
 
 	CREATE TABLE IF NOT EXISTS sales_invoice_line_items (
@@ -214,9 +228,11 @@ func createTables(db *sql.DB) error {
 	`
 	_, err := db.Exec(schema)
 	
-	// Add business_partner_id column if it doesn't exist.
-	// Ignore error since it fails if the column already exists.
+	// Add columns safely (sqlite ALTER TABLE ADD COLUMN does not support IF NOT EXISTS natively, but errors can be ignored safely if table already has them).
 	db.Exec("ALTER TABLE bank_transactions ADD COLUMN business_partner_id INTEGER REFERENCES business_partners(id);")
+	db.Exec("ALTER TABLE sales_invoices ADD COLUMN contact_id INTEGER REFERENCES business_partner_contacts(id);")
+	db.Exec("ALTER TABLE sales_invoices ADD COLUMN due_in_days INTEGER DEFAULT 0;")
+	db.Exec("ALTER TABLE sales_invoices ADD COLUMN due_date TEXT DEFAULT '';")
 	
 	return err
 }
@@ -303,24 +319,73 @@ func UpdateTransactionClassification(db *sql.DB, txnID int, accountHead, subAcco
 
 // CreateBusinessPartner inserts a new business partner.
 func CreateBusinessPartner(db *sql.DB, p BusinessPartner) (int64, error) {
-	result, err := db.Exec(`
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	result, err := tx.Exec(`
 		INSERT INTO business_partners (name, billing_address, invoice_currency, tax_information)
 		VALUES (?, ?, ?, ?)
 	`, p.Name, p.BillingAddress, p.InvoiceCurrency, p.TaxInformation)
 	if err != nil {
 		return 0, err
 	}
-	return result.LastInsertId()
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	if err := saveBusinessPartnerContacts(tx, int(id), p.Contacts); err != nil {
+		return 0, fmt.Errorf("saving contacts: %w", err)
+	}
+
+	return id, tx.Commit()
 }
 
 // UpdateBusinessPartner updates an existing business partner.
 func UpdateBusinessPartner(db *sql.DB, p BusinessPartner) error {
-	_, err := db.Exec(`
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`
 		UPDATE business_partners 
 		SET name = ?, billing_address = ?, invoice_currency = ?, tax_information = ?
 		WHERE id = ?
 	`, p.Name, p.BillingAddress, p.InvoiceCurrency, p.TaxInformation, p.ID)
-	return err
+	if err != nil {
+		return err
+	}
+
+	if err := saveBusinessPartnerContacts(tx, p.ID, p.Contacts); err != nil {
+		return fmt.Errorf("saving contacts: %w", err)
+	}
+
+	return tx.Commit()
+}
+
+func saveBusinessPartnerContacts(tx *sql.Tx, bpID int, contacts []BusinessPartnerContact) error {
+	// Simple approach: delete existing contacts, re-insert them.
+	// (SQLite enforces ON DELETE CASCADE if enabled, but we do it manually to be safe if PRAGMA was skipped).
+	_, err := tx.Exec(`DELETE FROM business_partner_contacts WHERE business_partner_id = ?`, bpID)
+	if err != nil {
+		return err
+	}
+
+	for _, c := range contacts {
+		_, err := tx.Exec(`
+			INSERT INTO business_partner_contacts (business_partner_id, name, email, phone, is_primary)
+			VALUES (?, ?, ?, ?, ?)
+		`, bpID, c.Name, c.Email, c.Phone, c.IsPrimary)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DeleteBusinessPartner deletes a business partner by ID.
@@ -358,6 +423,10 @@ func DeleteBusinessPartner(db *sql.DB, id int) error {
 		return fmt.Errorf(msg)
 	}
 
+	// Note: We don't need to manually delete contacts if PRAGMA foreign_keys = ON and ON DELETE CASCADE is set,
+	// but let's delete them explicitly to be safe.
+	_, _ = db.Exec(`DELETE FROM business_partner_contacts WHERE business_partner_id = ?`, id)
+
 	_, err = db.Exec(`DELETE FROM business_partners WHERE id = ?`, id)
 	return err
 }
@@ -369,8 +438,35 @@ func GetBusinessPartnerByID(db *sql.DB, id int) (BusinessPartner, error) {
 		SELECT id, name, billing_address, invoice_currency, tax_information
 		FROM business_partners WHERE id = ?
 	`, id).Scan(&p.ID, &p.Name, &p.BillingAddress, &p.InvoiceCurrency, &p.TaxInformation)
+	
+	if err == nil {
+		p.Contacts, _ = getBusinessPartnerContacts(db, p.ID)
+	}
+	
 	return p, err
 }
+
+func getBusinessPartnerContacts(db *sql.DB, bpID int) ([]BusinessPartnerContact, error) {
+	rows, err := db.Query(`
+		SELECT id, business_partner_id, name, email, phone, is_primary
+		FROM business_partner_contacts WHERE business_partner_id = ?
+	`, bpID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var contacts []BusinessPartnerContact
+	for rows.Next() {
+		var c BusinessPartnerContact
+		if err := rows.Scan(&c.ID, &c.BusinessPartnerID, &c.Name, &c.Email, &c.Phone, &c.IsPrimary); err == nil {
+			contacts = append(contacts, c)
+		}
+	}
+	return contacts, nil
+}
+
+
 
 // GetBusinessPartners fetches business partners, optionally filtering by name.
 func GetBusinessPartners(db *sql.DB, query string) ([]BusinessPartner, error) {
@@ -400,6 +496,7 @@ func GetBusinessPartners(db *sql.DB, query string) ([]BusinessPartner, error) {
 		if err := rows.Scan(&p.ID, &p.Name, &p.BillingAddress, &p.InvoiceCurrency, &p.TaxInformation); err != nil {
 			return nil, err
 		}
+		p.Contacts, _ = getBusinessPartnerContacts(db, p.ID)
 		partners = append(partners, p)
 	}
 	return partners, nil
@@ -408,7 +505,8 @@ func GetBusinessPartners(db *sql.DB, query string) ([]BusinessPartner, error) {
 // GetSalesInvoices fetches all sales invoices with their line items.
 func GetSalesInvoices(db *sql.DB) ([]SalesInvoice, error) {
 	rows, err := db.Query(`
-		SELECT s.id, s.invoice_number, s.financial_year, s.business_partner_id, bp.name, s.invoice_date, s.currency, s.amount
+		SELECT s.id, s.invoice_number, s.financial_year, s.business_partner_id, bp.name, 
+		       s.contact_id, s.invoice_date, s.due_in_days, s.due_date, s.currency, s.amount
 		FROM sales_invoices s
 		LEFT JOIN business_partners bp ON s.business_partner_id = bp.id
 		ORDER BY s.invoice_date DESC
@@ -422,7 +520,10 @@ func GetSalesInvoices(db *sql.DB) ([]SalesInvoice, error) {
 	for rows.Next() {
 		var inv SalesInvoice
 		var bpName sql.NullString
-		if err := rows.Scan(&inv.ID, &inv.InvoiceNumber, &inv.FinancialYear, &inv.BusinessPartnerID, &bpName, &inv.InvoiceDate, &inv.Currency, &inv.Amount); err != nil {
+		if err := rows.Scan(
+			&inv.ID, &inv.InvoiceNumber, &inv.FinancialYear, &inv.BusinessPartnerID, &bpName,
+			&inv.ContactID, &inv.InvoiceDate, &inv.DueInDays, &inv.DueDate, &inv.Currency, &inv.Amount,
+		); err != nil {
 			return nil, err
 		}
 		if bpName.Valid {
@@ -444,11 +545,15 @@ func GetSalesInvoiceByID(db *sql.DB, id int) (SalesInvoice, error) {
 	var inv SalesInvoice
 	var bpName sql.NullString
 	err := db.QueryRow(`
-		SELECT s.id, s.invoice_number, s.financial_year, s.business_partner_id, bp.name, s.invoice_date, s.currency, s.amount
+		SELECT s.id, s.invoice_number, s.financial_year, s.business_partner_id, bp.name, 
+		       s.contact_id, s.invoice_date, s.due_in_days, s.due_date, s.currency, s.amount
 		FROM sales_invoices s
 		LEFT JOIN business_partners bp ON s.business_partner_id = bp.id
 		WHERE s.id = ?
-	`, id).Scan(&inv.ID, &inv.InvoiceNumber, &inv.FinancialYear, &inv.BusinessPartnerID, &bpName, &inv.InvoiceDate, &inv.Currency, &inv.Amount)
+	`, id).Scan(
+		&inv.ID, &inv.InvoiceNumber, &inv.FinancialYear, &inv.BusinessPartnerID, &bpName,
+		&inv.ContactID, &inv.InvoiceDate, &inv.DueInDays, &inv.DueDate, &inv.Currency, &inv.Amount,
+	)
 	if err != nil {
 		return inv, err
 	}
@@ -530,9 +635,9 @@ func CreateSalesInvoice(db *sql.DB, inv SalesInvoice) (int, error) {
 	}
 
 	result, err := db.Exec(`
-		INSERT INTO sales_invoices (invoice_number, financial_year, business_partner_id, invoice_date, currency, amount)
-		VALUES (?, ?, ?, ?, ?, ?)
-	`, inv.InvoiceNumber, inv.FinancialYear, inv.BusinessPartnerID, inv.InvoiceDate, inv.Currency, total)
+		INSERT INTO sales_invoices (invoice_number, financial_year, business_partner_id, contact_id, invoice_date, due_in_days, due_date, currency, amount)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, inv.InvoiceNumber, inv.FinancialYear, inv.BusinessPartnerID, inv.ContactID, inv.InvoiceDate, inv.DueInDays, inv.DueDate, inv.Currency, total)
 	if err != nil {
 		return 0, err
 	}
@@ -561,9 +666,9 @@ func UpdateSalesInvoice(db *sql.DB, inv SalesInvoice) error {
 
 	_, err := db.Exec(`
 		UPDATE sales_invoices
-		SET invoice_number = ?, financial_year = ?, business_partner_id = ?, invoice_date = ?, currency = ?, amount = ?
+		SET invoice_number = ?, financial_year = ?, business_partner_id = ?, contact_id = ?, invoice_date = ?, due_in_days = ?, due_date = ?, currency = ?, amount = ?
 		WHERE id = ?
-	`, inv.InvoiceNumber, inv.FinancialYear, inv.BusinessPartnerID, inv.InvoiceDate, inv.Currency, total, inv.ID)
+	`, inv.InvoiceNumber, inv.FinancialYear, inv.BusinessPartnerID, inv.ContactID, inv.InvoiceDate, inv.DueInDays, inv.DueDate, inv.Currency, total, inv.ID)
 	if err != nil {
 		return err
 	}

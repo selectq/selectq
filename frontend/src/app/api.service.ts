@@ -30,12 +30,22 @@ export interface BankTransaction {
   forex_amount: number;
 }
 
+export interface BusinessPartnerContact {
+  id?: number;
+  business_partner_id?: number;
+  name: string;
+  email: string;
+  phone: string;
+  is_primary: boolean;
+}
+
 export interface BusinessPartner {
   id?: number;
   name: string;
   billing_address: string;
   invoice_currency: string;
   tax_information: string;
+  contacts?: BusinessPartnerContact[];
 }
 
 export interface InvoiceLineItem {
@@ -55,7 +65,10 @@ export interface SalesInvoice {
   financial_year: string;
   business_partner_id: number;
   business_partner_name?: string;
+  contact_id?: number;
   invoice_date: string;
+  due_in_days?: number;
+  due_date?: string;
   currency: string;
   amount: number;
   line_items?: InvoiceLineItem[];

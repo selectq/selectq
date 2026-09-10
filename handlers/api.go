@@ -267,6 +267,16 @@ func (s *Server) CreateSalesInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Calculate DueDate based on InvoiceDate and DueInDays
+	if inv.DueInDays > 0 && inv.InvoiceDate != "" {
+		dueDate, err := core.AddDaysToDate(inv.InvoiceDate, inv.DueInDays)
+		if err == nil {
+			inv.DueDate = dueDate
+		}
+	} else if inv.DueDate == "" {
+		inv.DueDate = inv.InvoiceDate
+	}
+
 	id, err := core.CreateSalesInvoice(s.DB, inv)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -300,6 +310,17 @@ func (s *Server) UpdateSalesInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	inv.ID = id
+
+	// Calculate DueDate based on InvoiceDate and DueInDays
+	if inv.DueInDays > 0 && inv.InvoiceDate != "" {
+		dueDate, err := core.AddDaysToDate(inv.InvoiceDate, inv.DueInDays)
+		if err == nil {
+			inv.DueDate = dueDate
+		}
+	} else if inv.DueDate == "" {
+		inv.DueDate = inv.InvoiceDate
+	}
+
 	if err := core.UpdateSalesInvoice(s.DB, inv); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

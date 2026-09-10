@@ -54,13 +54,24 @@ type AccountMeta struct {
 	StatementTo   string
 }
 
+// BusinessPartnerContact represents a single contact for a BusinessPartner.
+type BusinessPartnerContact struct {
+	ID                int    `json:"id"`
+	BusinessPartnerID int    `json:"business_partner_id"`
+	Name              string `json:"name"`
+	Email             string `json:"email"`
+	Phone             string `json:"phone"`
+	IsPrimary         bool   `json:"is_primary"`
+}
+
 // BusinessPartner represents a client or vendor configured in the system.
 type BusinessPartner struct {
-	ID              int    `json:"id"`
-	Name            string `json:"name"`
-	BillingAddress  string `json:"billing_address"`
-	InvoiceCurrency string `json:"invoice_currency"`
-	TaxInformation  string `json:"tax_information"`
+	ID              int                      `json:"id"`
+	Name            string                   `json:"name"`
+	BillingAddress  string                   `json:"billing_address"`
+	InvoiceCurrency string                   `json:"invoice_currency"`
+	TaxInformation  string                   `json:"tax_information"`
+	Contacts        []BusinessPartnerContact `json:"contacts"`
 }
 
 // SalesInvoice represents a sales invoice stored in the system.
@@ -70,7 +81,10 @@ type SalesInvoice struct {
 	FinancialYear       string            `json:"financial_year"`
 	BusinessPartnerID   int               `json:"business_partner_id"`
 	BusinessPartnerName string            `json:"business_partner_name,omitempty"`
+	ContactID           *int              `json:"contact_id,omitempty"`
 	InvoiceDate         string            `json:"invoice_date"`
+	DueInDays           int               `json:"due_in_days"`
+	DueDate             string            `json:"due_date"`
 	Currency            string            `json:"currency"`
 	Amount              float64           `json:"amount"`
 	LineItems           []InvoiceLineItem `json:"line_items,omitempty"`
