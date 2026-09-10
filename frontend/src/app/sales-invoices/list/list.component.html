@@ -5,89 +5,98 @@
   </div>
 </div>
 
-<div class="loading" *ngIf="isLoading">
-  Loading sales invoices...
+<!-- Tab Bar -->
+<div class="tab-bar">
+  <button class="tab-btn" [class.active]="activeTab === 'view'" (click)="activeTab = 'view'">
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+      <line x1="3" y1="9" x2="21" y2="9"></line>
+      <line x1="9" y1="21" x2="9" y2="9"></line>
+    </svg>
+    View Invoices
+  </button>
+  <button class="tab-btn" [class.active]="activeTab === 'create'" (click)="switchToCreate()">
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19"></line>
+      <line x1="5" y1="12" x2="19" y2="12"></line>
+    </svg>
+    Raise New Invoice
+  </button>
 </div>
 
-<div class="empty-state" *ngIf="!isLoading && invoices.length === 0 && !selectedInvoice">
-  <p>No sales invoices configured yet.</p>
-  <button class="btn-secondary" style="margin-top: 1rem;" (click)="createNew()">Create First Invoice</button>
-</div>
+<!-- Tab: View Invoices (AG Grid) -->
+<div class="tab-content" *ngIf="activeTab === 'view'">
+  <div class="loading" *ngIf="isLoading">Loading sales invoices...</div>
 
-<div class="master-detail-container" *ngIf="!isLoading && (invoices.length > 0 || selectedInvoice)">
-  
-  <!-- Master List -->
-  <div class="master-list glass-card">
-    <div class="master-header">
-      <h3>Invoices</h3>
-      <button class="btn-icon-primary" (click)="createNew()" title="Add New Invoice">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-      </button>
-    </div>
-    
-    <div class="list-item" 
-         *ngFor="let inv of invoices" 
-         [class.active]="selectedInvoice?.id === inv.id"
-         (click)="selectInvoice(inv)">
-      <div class="item-name">{{ inv.invoice_number }}</div>
-      <div class="item-meta">
-        <span class="badge gray">{{ inv.invoice_date | date:'shortDate' }}</span>
-        <span class="badge pink">{{ inv.business_partner_name }}</span>
-      </div>
-    </div>
+  <div class="empty-state" *ngIf="!isLoading && invoices.length === 0">
+    <p>No sales invoices found.</p>
+    <button class="btn-primary" style="margin-top: 1rem;" (click)="switchToCreate()">Raise First Invoice</button>
   </div>
 
-  <!-- Detail View (Form Mode) -->
-  <div class="detail-view glass-card" *ngIf="selectedInvoice">
-    <div class="detail-header">
-      <div class="header-info">
-        <h3>{{ isNew ? 'New Invoice' : 'Edit Invoice: ' + selectedInvoice.invoice_number }}</h3>
-      </div>
+  <div class="grid-container glass-card" *ngIf="!isLoading && invoices.length > 0">
+    <ag-grid-angular
+      style="width: 100%; height: 500px;"
+      [class]="isDarkMode ? 'ag-theme-quartz-dark' : 'ag-theme-quartz'"
+      [rowData]="invoices"
+      [columnDefs]="columnDefs"
+      [defaultColDef]="defaultColDef"
+      [animateRows]="true"
+      [pagination]="true"
+      [paginationPageSize]="20">
+    </ag-grid-angular>
+  </div>
+</div>
+
+<!-- Tab: Raise New Invoice (Form) -->
+<div class="tab-content" *ngIf="activeTab === 'create'">
+  <div class="glass-card form-card">
+    <div class="form-header">
+      <h3>{{ isEditMode ? 'Edit Invoice' : 'Raise New Invoice' }}</h3>
+      <p class="form-subtitle">{{ isEditMode ? 'Update the details for this invoice.' : 'Fill in all required fields to generate a new invoice.' }}</p>
     </div>
 
-    <div class="detail-body form-grid">
-      
+    <div class="form-body form-grid">
       <div class="form-group">
-        <label>Invoice Number <span style="color: #ef4444;">*</span></label>
-        <input type="text" class="form-control" [(ngModel)]="selectedInvoice.invoice_number" placeholder="e.g. INV-2026-001" />
+        <label>Invoice Number <span class="required">*</span></label>
+        <input type="text" class="form-control" [(ngModel)]="formInvoice.invoice_number" placeholder="e.g. INV-2026-001" />
       </div>
 
       <div class="form-group">
-        <label>Financial Year <span style="color: #ef4444;">*</span></label>
-        <input type="text" class="form-control" [(ngModel)]="selectedInvoice.financial_year" placeholder="e.g. 2026-27" />
+        <label>Financial Year <span class="required">*</span></label>
+        <input type="text" class="form-control" [(ngModel)]="formInvoice.financial_year" placeholder="e.g. 2026-27" />
       </div>
 
       <div class="form-group">
-        <label>Business Partner <span style="color: #ef4444;">*</span></label>
-        <select class="form-control" [(ngModel)]="selectedInvoice.business_partner_id">
+        <label>Business Partner <span class="required">*</span></label>
+        <select class="form-control" [(ngModel)]="formInvoice.business_partner_id">
           <option [ngValue]="0" disabled>Select Partner</option>
           <option *ngFor="let bp of businessPartners" [ngValue]="bp.id">{{ bp.name }}</option>
         </select>
       </div>
 
       <div class="form-group">
-        <label>Invoice Date <span style="color: #ef4444;">*</span></label>
-        <input type="date" class="form-control" [(ngModel)]="selectedInvoice.invoice_date" />
+        <label>Invoice Date <span class="required">*</span></label>
+        <input type="date" class="form-control" [(ngModel)]="formInvoice.invoice_date" />
       </div>
 
       <div class="form-group">
-        <label>Currency <span style="color: #ef4444;">*</span></label>
-        <select class="form-control" [(ngModel)]="selectedInvoice.currency">
+        <label>Currency <span class="required">*</span></label>
+        <select class="form-control" [(ngModel)]="formInvoice.currency">
           <option *ngFor="let curr of currencies" [ngValue]="curr">{{ curr }}</option>
         </select>
       </div>
 
       <div class="form-group">
-        <label>Amount <span style="color: #ef4444;">*</span></label>
-        <input type="number" class="form-control" [(ngModel)]="selectedInvoice.amount" />
+        <label>Amount <span class="required">*</span></label>
+        <input type="number" class="form-control" [(ngModel)]="formInvoice.amount" placeholder="0.00" />
       </div>
-
     </div>
-    
+
     <div class="form-actions">
-      <button class="btn-primary" (click)="save()">Save Invoice</button>
-      <button class="btn-secondary" (click)="cancel()">Cancel</button>
+      <button class="btn-cancel" (click)="cancelForm()">Cancel</button>
+      <button class="btn-primary" (click)="save()" [disabled]="isSaving">
+        {{ isSaving ? 'Saving...' : (isEditMode ? 'Update Invoice' : 'Save Invoice') }}
+      </button>
     </div>
   </div>
-
 </div>

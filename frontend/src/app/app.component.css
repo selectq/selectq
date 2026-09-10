@@ -220,3 +220,23 @@
 :host .sidebar.collapsed .sidebar-footer {
   padding: 0 0.5rem;
 }
+
+/* Light mode overrides for sidebar component elements */
+:host-context([data-theme="light"]) .sidebar-toggle,
+:host-context([data-theme="light"]) .theme-toggle-btn {
+  color: #94a3b8;
+}
+
+:host-context([data-theme="light"]) .sidebar-toggle:hover,
+:host-context([data-theme="light"]) .theme-toggle-btn:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+:host-context([data-theme="light"]) .brand-sub {
+  color: #64748b;
+}
+
+:host-context([data-theme="light"]) .nav-section-label {
+  color: #64748b;
+}
