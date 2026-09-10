@@ -38,6 +38,17 @@ export interface BusinessPartner {
   tax_information: string;
 }
 
+export interface InvoiceLineItem {
+  id?: number;
+  sales_invoice_id?: number;
+  description: string;
+  hsn_sac_code: string;
+  quantity: number;
+  rate: number;
+  gst_percent: number;
+  amount: number;
+}
+
 export interface SalesInvoice {
   id?: number;
   invoice_number: string;
@@ -47,6 +58,7 @@ export interface SalesInvoice {
   invoice_date: string;
   currency: string;
   amount: number;
+  line_items?: InvoiceLineItem[];
 }
 
 @Injectable({
@@ -101,6 +113,10 @@ export class ApiService {
 
   getSalesInvoices(): Observable<SalesInvoice[]> {
     return this.http.get<SalesInvoice[]>(`${this.baseUrl}/sales-invoices`);
+  }
+
+  getSalesInvoice(id: number): Observable<SalesInvoice> {
+    return this.http.get<SalesInvoice>(`${this.baseUrl}/sales-invoices/${id}`);
   }
 
   createSalesInvoice(invoice: SalesInvoice): Observable<SalesInvoice> {

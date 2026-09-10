@@ -43,6 +43,7 @@ func main() {
 	
 	api.HandleFunc("/sales-invoices", srv.GetSalesInvoices).Methods("GET")
 	api.HandleFunc("/sales-invoices", srv.CreateSalesInvoice).Methods("POST")
+	api.HandleFunc("/sales-invoices/{id:[0-9]+}", srv.GetSalesInvoiceByID).Methods("GET")
 	api.HandleFunc("/sales-invoices/{id:[0-9]+}", srv.UpdateSalesInvoice).Methods("PUT")
 	
 	api.HandleFunc("/upload", srv.UploadStatement).Methods("POST")

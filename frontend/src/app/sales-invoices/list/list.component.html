@@ -52,9 +52,10 @@
   <div class="glass-card form-card">
     <div class="form-header">
       <h3>{{ isEditMode ? 'Edit Invoice' : 'Raise New Invoice' }}</h3>
-      <p class="form-subtitle">{{ isEditMode ? 'Update the details for this invoice.' : 'Fill in all required fields to generate a new invoice.' }}</p>
+      <p class="form-subtitle">{{ isEditMode ? 'Update the details for this invoice.' : 'Fill in the header and add line items.' }}</p>
     </div>
 
+    <!-- Invoice Header Fields -->
     <div class="form-body form-grid">
       <div class="form-group">
         <label>Invoice Number <span class="required">*</span></label>
@@ -81,14 +82,94 @@
 
       <div class="form-group">
         <label>Currency <span class="required">*</span></label>
-        <select class="form-control" [(ngModel)]="formInvoice.currency">
+        <select class="form-control" [(ngModel)]="formInvoice.currency" (ngModelChange)="onCurrencyChange()">
           <option *ngFor="let curr of currencies" [ngValue]="curr">{{ curr }}</option>
         </select>
       </div>
+    </div>
 
-      <div class="form-group">
-        <label>Amount <span class="required">*</span></label>
-        <input type="number" class="form-control" [(ngModel)]="formInvoice.amount" placeholder="0.00" />
+    <!-- Line Items Section -->
+    <div class="line-items-section">
+      <div class="line-items-header">
+        <h4>Line Items</h4>
+        <button class="btn-add-line" (click)="addLineItem()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          Add Line
+        </button>
+      </div>
+
+      <div class="line-items-table" *ngIf="lineItems.length > 0">
+        <!-- Table Header -->
+        <div class="li-header-row">
+          <div class="li-col li-col-num">#</div>
+          <div class="li-col li-col-desc">Description</div>
+          <div class="li-col li-col-hsn" *ngIf="isINR">HSN/SAC</div>
+          <div class="li-col li-col-qty">Qty</div>
+          <div class="li-col li-col-rate">Rate</div>
+          <div class="li-col li-col-gst" *ngIf="isINR">GST %</div>
+          <div class="li-col li-col-amount">Amount</div>
+          <div class="li-col li-col-action"></div>
+        </div>
+
+        <!-- Line Item Rows -->
+        <div class="li-row" *ngFor="let item of lineItems; let i = index">
+          <div class="li-col li-col-num">{{ i + 1 }}</div>
+          <div class="li-col li-col-desc">
+            <input type="text" [(ngModel)]="item.description" placeholder="Item description" />
+          </div>
+          <div class="li-col li-col-hsn" *ngIf="isINR">
+            <input type="text" [(ngModel)]="item.hsn_sac_code" placeholder="e.g. 998314" />
+          </div>
+          <div class="li-col li-col-qty">
+            <input type="number" [(ngModel)]="item.quantity" (ngModelChange)="recalcLineAmount(item)" min="0" step="1" />
+          </div>
+          <div class="li-col li-col-rate">
+            <input type="number" [(ngModel)]="item.rate" (ngModelChange)="recalcLineAmount(item)" min="0" step="0.01" />
+          </div>
+          <div class="li-col li-col-gst" *ngIf="isINR">
+            <select [(ngModel)]="item.gst_percent" (ngModelChange)="recalcTotals()">
+              <option [ngValue]="0">0%</option>
+              <option [ngValue]="5">5%</option>
+              <option [ngValue]="12">12%</option>
+              <option [ngValue]="18">18%</option>
+              <option [ngValue]="28">28%</option>
+            </select>
+          </div>
+          <div class="li-col li-col-amount">
+            <span class="amount-display">{{ item.amount | number:'1.2-2' }}</span>
+          </div>
+          <div class="li-col li-col-action">
+            <button class="btn-remove-line" (click)="removeLineItem(i)" title="Remove line">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="empty-lines" *ngIf="lineItems.length === 0">
+        <p>No line items added. Click "Add Line" to begin.</p>
+      </div>
+
+      <!-- Totals -->
+      <div class="totals-section" *ngIf="lineItems.length > 0">
+        <div class="total-row">
+          <span class="total-label">Subtotal</span>
+          <span class="total-value">{{ subtotal | number:'1.2-2' }}</span>
+        </div>
+        <div class="total-row" *ngIf="isINR && totalGst > 0">
+          <span class="total-label">GST</span>
+          <span class="total-value">{{ totalGst | number:'1.2-2' }}</span>
+        </div>
+        <div class="total-row grand-total">
+          <span class="total-label">Total ({{ formInvoice.currency }})</span>
+          <span class="total-value">{{ grandTotal | number:'1.2-2' }}</span>
+        </div>
       </div>
     </div>
 

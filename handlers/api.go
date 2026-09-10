@@ -242,6 +242,23 @@ func (s *Server) GetSalesInvoices(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(invoices)
 }
 
+func (s *Server) GetSalesInvoiceByID(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	inv, err := core.GetSalesInvoiceByID(s.DB, id)
+	if err != nil {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+	json.NewEncoder(w).Encode(inv)
+}
+
 func (s *Server) CreateSalesInvoice(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var inv core.SalesInvoice
@@ -256,9 +273,16 @@ func (s *Server) CreateSalesInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inv.ID = id
+	// Return the full invoice with computed total and line items
+	created, err := core.GetSalesInvoiceByID(s.DB, id)
+	if err != nil {
+		inv.ID = id
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(inv)
+		return
+	}
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(inv)
+	json.NewEncoder(w).Encode(created)
 }
 
 func (s *Server) UpdateSalesInvoice(w http.ResponseWriter, r *http.Request) {
@@ -280,5 +304,12 @@ func (s *Server) UpdateSalesInvoice(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(map[string]string{"message": "Sales invoice updated successfully"})
+
+	// Return updated invoice
+	updated, err := core.GetSalesInvoiceByID(s.DB, id)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"message": "Sales invoice updated successfully"})
+		return
+	}
+	json.NewEncoder(w).Encode(updated)
 }

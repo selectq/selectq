@@ -182,9 +182,22 @@ func createTables(db *sql.DB) error {
 		business_partner_id INTEGER NOT NULL,
 		invoice_date        TEXT NOT NULL,
 		currency            TEXT NOT NULL,
-		amount              REAL NOT NULL,
+		amount              REAL NOT NULL DEFAULT 0,
 		created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (business_partner_id) REFERENCES business_partners(id)
+	);
+
+	CREATE TABLE IF NOT EXISTS sales_invoice_line_items (
+		id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+		sales_invoice_id   INTEGER NOT NULL,
+		description        TEXT NOT NULL,
+		hsn_sac_code       TEXT DEFAULT '',
+		quantity           REAL DEFAULT 1,
+		rate               REAL DEFAULT 0,
+		gst_percent        REAL DEFAULT 0,
+		amount             REAL NOT NULL DEFAULT 0,
+		created_at         DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (sales_invoice_id) REFERENCES sales_invoices(id) ON DELETE CASCADE
 	);
 	`
 	_, err := db.Exec(schema)
@@ -380,7 +393,7 @@ func GetBusinessPartners(db *sql.DB, query string) ([]BusinessPartner, error) {
 	return partners, nil
 }
 
-// GetSalesInvoices fetches sales invoices.
+// GetSalesInvoices fetches all sales invoices with their line items.
 func GetSalesInvoices(db *sql.DB) ([]SalesInvoice, error) {
 	rows, err := db.Query(`
 		SELECT s.id, s.invoice_number, s.financial_year, s.business_partner_id, bp.name, s.invoice_date, s.currency, s.amount
@@ -403,17 +416,111 @@ func GetSalesInvoices(db *sql.DB) ([]SalesInvoice, error) {
 		if bpName.Valid {
 			inv.BusinessPartnerName = bpName.String
 		}
+		// Load line items for this invoice
+		items, err := GetLineItems(db, inv.ID)
+		if err != nil {
+			return nil, fmt.Errorf("loading line items for invoice %d: %w", inv.ID, err)
+		}
+		inv.LineItems = items
 		invoices = append(invoices, inv)
 	}
 	return invoices, nil
 }
 
-// CreateSalesInvoice creates a new sales invoice.
+// GetSalesInvoiceByID fetches a single sales invoice by ID with its line items.
+func GetSalesInvoiceByID(db *sql.DB, id int) (SalesInvoice, error) {
+	var inv SalesInvoice
+	var bpName sql.NullString
+	err := db.QueryRow(`
+		SELECT s.id, s.invoice_number, s.financial_year, s.business_partner_id, bp.name, s.invoice_date, s.currency, s.amount
+		FROM sales_invoices s
+		LEFT JOIN business_partners bp ON s.business_partner_id = bp.id
+		WHERE s.id = ?
+	`, id).Scan(&inv.ID, &inv.InvoiceNumber, &inv.FinancialYear, &inv.BusinessPartnerID, &bpName, &inv.InvoiceDate, &inv.Currency, &inv.Amount)
+	if err != nil {
+		return inv, err
+	}
+	if bpName.Valid {
+		inv.BusinessPartnerName = bpName.String
+	}
+	items, err := GetLineItems(db, inv.ID)
+	if err != nil {
+		return inv, err
+	}
+	inv.LineItems = items
+	return inv, nil
+}
+
+// GetLineItems fetches all line items for a given sales invoice.
+func GetLineItems(db *sql.DB, invoiceID int) ([]InvoiceLineItem, error) {
+	rows, err := db.Query(`
+		SELECT id, sales_invoice_id, description, hsn_sac_code, quantity, rate, gst_percent, amount
+		FROM sales_invoice_line_items
+		WHERE sales_invoice_id = ?
+		ORDER BY id
+	`, invoiceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []InvoiceLineItem
+	for rows.Next() {
+		var li InvoiceLineItem
+		if err := rows.Scan(&li.ID, &li.SalesInvoiceID, &li.Description, &li.HsnSacCode, &li.Quantity, &li.Rate, &li.GstPercent, &li.Amount); err != nil {
+			return nil, err
+		}
+		items = append(items, li)
+	}
+	return items, nil
+}
+
+// SaveLineItems replaces all line items for an invoice and updates the invoice total.
+func SaveLineItems(db *sql.DB, invoiceID int, items []InvoiceLineItem) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Delete existing line items
+	if _, err := tx.Exec(`DELETE FROM sales_invoice_line_items WHERE sales_invoice_id = ?`, invoiceID); err != nil {
+		return err
+	}
+
+	// Insert new line items and compute total
+	var total float64
+	for _, item := range items {
+		_, err := tx.Exec(`
+			INSERT INTO sales_invoice_line_items (sales_invoice_id, description, hsn_sac_code, quantity, rate, gst_percent, amount)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, invoiceID, item.Description, item.HsnSacCode, item.Quantity, item.Rate, item.GstPercent, item.Amount)
+		if err != nil {
+			return err
+		}
+		total += item.Amount
+	}
+
+	// Update invoice total
+	if _, err := tx.Exec(`UPDATE sales_invoices SET amount = ? WHERE id = ?`, total, invoiceID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// CreateSalesInvoice creates a new sales invoice with its line items.
 func CreateSalesInvoice(db *sql.DB, inv SalesInvoice) (int, error) {
+	// Compute total from line items
+	var total float64
+	for _, item := range inv.LineItems {
+		total += item.Amount
+	}
+
 	result, err := db.Exec(`
 		INSERT INTO sales_invoices (invoice_number, financial_year, business_partner_id, invoice_date, currency, amount)
 		VALUES (?, ?, ?, ?, ?, ?)
-	`, inv.InvoiceNumber, inv.FinancialYear, inv.BusinessPartnerID, inv.InvoiceDate, inv.Currency, inv.Amount)
+	`, inv.InvoiceNumber, inv.FinancialYear, inv.BusinessPartnerID, inv.InvoiceDate, inv.Currency, total)
 	if err != nil {
 		return 0, err
 	}
@@ -421,15 +528,38 @@ func CreateSalesInvoice(db *sql.DB, inv SalesInvoice) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+
+	// Save line items if provided
+	if len(inv.LineItems) > 0 {
+		if err := SaveLineItems(db, int(id), inv.LineItems); err != nil {
+			return 0, fmt.Errorf("saving line items: %w", err)
+		}
+	}
+
 	return int(id), nil
 }
 
-// UpdateSalesInvoice updates an existing sales invoice.
+// UpdateSalesInvoice updates an existing sales invoice and its line items.
 func UpdateSalesInvoice(db *sql.DB, inv SalesInvoice) error {
+	// Compute total from line items
+	var total float64
+	for _, item := range inv.LineItems {
+		total += item.Amount
+	}
+
 	_, err := db.Exec(`
 		UPDATE sales_invoices
 		SET invoice_number = ?, financial_year = ?, business_partner_id = ?, invoice_date = ?, currency = ?, amount = ?
 		WHERE id = ?
-	`, inv.InvoiceNumber, inv.FinancialYear, inv.BusinessPartnerID, inv.InvoiceDate, inv.Currency, inv.Amount, inv.ID)
-	return err
+	`, inv.InvoiceNumber, inv.FinancialYear, inv.BusinessPartnerID, inv.InvoiceDate, inv.Currency, total, inv.ID)
+	if err != nil {
+		return err
+	}
+
+	// Replace line items
+	if err := SaveLineItems(db, inv.ID, inv.LineItems); err != nil {
+		return fmt.Errorf("saving line items: %w", err)
+	}
+
+	return nil
 }

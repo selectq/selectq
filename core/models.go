@@ -65,12 +65,36 @@ type BusinessPartner struct {
 
 // SalesInvoice represents a sales invoice stored in the system.
 type SalesInvoice struct {
-	ID                  int     `json:"id"`
-	InvoiceNumber       string  `json:"invoice_number"`
-	FinancialYear       string  `json:"financial_year"`
-	BusinessPartnerID   int     `json:"business_partner_id"`
-	BusinessPartnerName string  `json:"business_partner_name,omitempty"`
-	InvoiceDate         string  `json:"invoice_date"`
-	Currency            string  `json:"currency"`
-	Amount              float64 `json:"amount"`
+	ID                  int               `json:"id"`
+	InvoiceNumber       string            `json:"invoice_number"`
+	FinancialYear       string            `json:"financial_year"`
+	BusinessPartnerID   int               `json:"business_partner_id"`
+	BusinessPartnerName string            `json:"business_partner_name,omitempty"`
+	InvoiceDate         string            `json:"invoice_date"`
+	Currency            string            `json:"currency"`
+	Amount              float64           `json:"amount"`
+	LineItems           []InvoiceLineItem `json:"line_items,omitempty"`
+}
+
+// InvoiceLineItem represents a single line item on a sales invoice.
+type InvoiceLineItem struct {
+	ID             int     `json:"id"`
+	SalesInvoiceID int     `json:"sales_invoice_id"`
+	Description    string  `json:"description"`
+	HsnSacCode     string  `json:"hsn_sac_code"`
+	Quantity       float64 `json:"quantity"`
+	Rate           float64 `json:"rate"`
+	GstPercent     float64 `json:"gst_percent"`
+	Amount         float64 `json:"amount"`
+}
+
+// CompanyProfile holds the seller/company information for invoices.
+type CompanyProfile struct {
+	ID          int    `json:"id"`
+	CompanyName string `json:"company_name"`
+	Address     string `json:"address"`
+	GSTIN       string `json:"gstin"`
+	PAN         string `json:"pan"`
+	Email       string `json:"email"`
+	Phone       string `json:"phone"`
 }
