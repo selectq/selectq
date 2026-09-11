@@ -7,6 +7,7 @@ import (
 )
 
 type BPAddress struct {
+	GSTIN             string `json:"gstin"`
 	ID                int    `json:"id"`
 	BusinessPartnerID int    `json:"business_partner_id"`
 	Address           string `json:"address"`
@@ -82,7 +83,7 @@ func initBPAddresses(db *sql.DB) error {
 	return tx.Commit()
 }
 func GetBPAddresses(db *sql.DB, bpID int) ([]BPAddress, error) {
-	rows, err := db.Query(`SELECT id,business_partner_id,address,previous_address_id,is_archived,created_at FROM bp_addresses WHERE business_partner_id=? ORDER BY id`, bpID)
+	rows, err := db.Query(`SELECT id,business_partner_id,address,previous_address_id,is_archived,created_at,gstin FROM bp_addresses WHERE business_partner_id=? ORDER BY id`, bpID)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +91,7 @@ func GetBPAddresses(db *sql.DB, bpID int) ([]BPAddress, error) {
 	addresses := []BPAddress{}
 	for rows.Next() {
 		var a BPAddress
-		if err = rows.Scan(&a.ID, &a.BusinessPartnerID, &a.Address, &a.PreviousAddressID, &a.IsArchived, &a.CreatedAt); err != nil {
+		if err = rows.Scan(&a.ID, &a.BusinessPartnerID, &a.Address, &a.PreviousAddressID, &a.IsArchived, &a.CreatedAt, &a.GSTIN); err != nil {
 			return nil, err
 		}
 		addresses = append(addresses, a)
@@ -102,18 +103,22 @@ func saveBPAddresses(tx *sql.Tx, bpID int, addresses []BPAddress, legacy string)
 	// never removes history. Modern clients send addresses (omission preserves).
 	if addresses == nil && strings.TrimSpace(legacy) != "" {
 		var id int
-		var current string
-		err := tx.QueryRow(`SELECT id,address FROM bp_addresses WHERE business_partner_id=? AND is_archived=0 ORDER BY id LIMIT 1`, bpID).Scan(&id, &current)
+		var current, gstin string
+		err := tx.QueryRow(`SELECT id,address,gstin FROM bp_addresses WHERE business_partner_id=? AND is_archived=0 ORDER BY id LIMIT 1`, bpID).Scan(&id, &current, &gstin)
 		if err != nil && err != sql.ErrNoRows {
 			return err
 		}
 		if current != strings.TrimSpace(legacy) {
-			addresses = []BPAddress{{ID: id, Address: legacy}}
+			addresses = []BPAddress{{ID: id, Address: legacy, GSTIN: gstin}}
 		}
 	}
 	seen := map[int]bool{}
 	for _, a := range addresses {
 		text := strings.TrimSpace(a.Address)
+		gstin, err := normalizeGSTIN(a.GSTIN)
+		if err != nil {
+			return err
+		}
 		if text == "" {
 			return fmt.Errorf("address cannot be blank")
 		}
@@ -121,7 +126,7 @@ func saveBPAddresses(tx *sql.Tx, bpID int, addresses []BPAddress, legacy string)
 			if a.PreviousAddressID != nil {
 				return fmt.Errorf("edit an existing address by its id to create a version")
 			}
-			if _, err := tx.Exec(`INSERT INTO bp_addresses(business_partner_id,address,is_archived) VALUES(?,?,?)`, bpID, text, a.IsArchived); err != nil {
+			if _, err := tx.Exec(`INSERT INTO bp_addresses(business_partner_id,address,is_archived,gstin) VALUES(?,?,?,?)`, bpID, text, a.IsArchived, gstin); err != nil {
 				return err
 			}
 			continue
@@ -130,19 +135,19 @@ func saveBPAddresses(tx *sql.Tx, bpID int, addresses []BPAddress, legacy string)
 			return fmt.Errorf("duplicate address id")
 		}
 		seen[a.ID] = true
-		var original string
+		var original, originalGSTIN string
 		var archived bool
-		if err := tx.QueryRow(`SELECT address,is_archived FROM bp_addresses WHERE id=? AND business_partner_id=?`, a.ID, bpID).Scan(&original, &archived); err != nil {
+		if err := tx.QueryRow(`SELECT address,is_archived,gstin FROM bp_addresses WHERE id=? AND business_partner_id=?`, a.ID, bpID).Scan(&original, &archived, &originalGSTIN); err != nil {
 			return fmt.Errorf("address does not belong to this partner")
 		}
-		if original != text {
+		if strings.TrimSpace(original) != text || originalGSTIN != gstin {
 			if archived {
 				return fmt.Errorf("archived addresses cannot be edited; add a new address")
 			}
 			if _, err := tx.Exec(`UPDATE bp_addresses SET is_archived=1 WHERE id=?`, a.ID); err != nil {
 				return err
 			}
-			if _, err := tx.Exec(`INSERT INTO bp_addresses(business_partner_id,address,previous_address_id,is_archived) VALUES(?,?,?,?)`, bpID, text, a.ID, a.IsArchived); err != nil {
+			if _, err := tx.Exec(`INSERT INTO bp_addresses(business_partner_id,address,previous_address_id,is_archived,gstin) VALUES(?,?,?,?,?)`, bpID, text, a.ID, a.IsArchived, gstin); err != nil {
 				return err
 			}
 		} else {

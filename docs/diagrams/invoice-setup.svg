@@ -25,7 +25,7 @@
 <text x="66" y="198" class="field">PK id</text>
 <text x="66" y="225" class="field">UQ name</text>
 <text x="66" y="252" class="field">invoice_currency</text>
-<text x="66" y="279" class="field">billing_address</text>
+<text x="66" y="279" class="field">tax_information</text>
 <rect x="800" y="130" width="350" height="162" rx="10" fill="white" stroke="#c6d4e1"/>
 <path d="M810 130 H1140 Q1150 130 1150 140 V172 H800 V140 Q800 130 810 130" fill="#215b88"/>
 <text x="816" y="158" class="entity">business_partner_contacts</text>
@@ -33,16 +33,18 @@
 <text x="816" y="225" class="field">FK business_partner_id</text>
 <text x="816" y="252" class="field">name / email / phone</text>
 <text x="816" y="279" class="field">is_primary</text>
-<rect x="50" y="450" width="390" height="243" rx="10" fill="white" stroke="#c6d4e1"/>
+<rect x="50" y="450" width="390" height="297" rx="10" fill="white" stroke="#c6d4e1"/>
 <path d="M60 450 H430 Q440 450 440 460 V492 H50 V460 Q50 450 60 450" fill="#087e83"/>
 <text x="66" y="478" class="entity">sales_invoices</text>
 <text x="66" y="518" class="field">PK id</text>
 <text x="66" y="545" class="field">UQ invoice_number</text>
 <text x="66" y="572" class="field">FK business_partner_id</text>
 <text x="66" y="599" class="field">FK contact_id (nullable)</text>
-<text x="66" y="626" class="field">financial_year / invoice_date</text>
-<text x="66" y="653" class="field">currency / amount (before GST)</text>
-<text x="66" y="680" class="field">is_closed</text>
+<text x="66" y="626" class="field">FK address_id (nullable)</text>
+<text x="66" y="653" class="field">financial_year / invoice_date</text>
+<text x="66" y="680" class="field">currency / amount (before GST)</text>
+<text x="66" y="707" class="field">is_closed / gst_treatment</text>
+<text x="66" y="734" class="field">seller_gstin (snapshot)</text>
 <rect x="800" y="450" width="350" height="189" rx="10" fill="white" stroke="#c6d4e1"/>
 <path d="M810 450 H1140 Q1150 450 1150 460 V492 H800 V460 Q800 450 810 450" fill="#087e83"/>
 <text x="816" y="478" class="entity">sales_invoice_line_items</text>
@@ -52,6 +54,6 @@
 <text x="816" y="599" class="field">quantity / rate</text>
 <text x="816" y="626" class="field">gst_percent / amount</text>
 <text x="50" y="770" class="note">Each invoice has one partner; a contact may be omitted. Each line item belongs to one invoice.</text>
-<text x="50" y="797" class="note">amount on an invoice is the sum of stored line-item amounts before GST.</text>
+<text x="50" y="797" class="note">Address ownership and immutable versions are expanded in diagram 04 / Business partner addresses.</text>
 <text x="50" y="824" class="note">Numbering uses invoice_sequences; seller details use company_profile. Neither has an invoice foreign key.</text>
 <text x="40" y="876" class="sub">PK primary key · FK foreign key · UQ unique · 1 exactly one · 0..1 optional · 0..* zero or many</text></svg>

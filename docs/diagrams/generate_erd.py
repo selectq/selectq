@@ -29,9 +29,9 @@ def diagram(filename, title, subtitle, height, cards, edges, notes):
 
 blue='#215b88'; teal='#087e83'; purple='#6952a3'
 diagram('invoice-setup.svg','01 / Create an invoice for a business partner','Invoice ownership, optional contact and item-level GST. Selected columns shown.',900,[
- (50,130,350,'business_partners',['PK id','UQ name','invoice_currency','billing_address'],blue),
+ (50,130,350,'business_partners',['PK id','UQ name','invoice_currency','tax_information'],blue),
  (800,130,350,'business_partner_contacts',['PK id','FK business_partner_id','name / email / phone','is_primary'],blue),
- (50,450,390,'sales_invoices',['PK id','UQ invoice_number','FK business_partner_id','FK contact_id (nullable)','financial_year / invoice_date','currency / amount (before GST)','is_closed'],teal),
+ (50,450,390,'sales_invoices',['PK id','UQ invoice_number','FK business_partner_id','FK contact_id (nullable)','FK address_id (nullable)','financial_year / invoice_date','currency / amount (before GST)','is_closed / gst_treatment','seller_gstin (snapshot)'],teal),
  (800,450,350,'sales_invoice_line_items',['PK id','FK sales_invoice_id','description / hsn_sac_code','quantity / rate','gst_percent / amount'],teal)
 ],[
  ('M400 205 H800',[(425,194,'1'),(775,194,'0..*'),(600,194,'has contacts')]),
@@ -39,7 +39,7 @@ diagram('invoice-setup.svg','01 / Create an invoice for a business partner','Inv
  ('M975 292 V375 H600 V505 H440',[(992,320,'0..1'),(469,494,'0..*'),(720,364,'optional invoice contact')]),
  ('M440 610 H800',[(466,599,'1'),(772,599,'0..*'),(620,599,'contains')])
 ],[(50,770,'Each invoice has one partner; a contact may be omitted. Each line item belongs to one invoice.'),
-   (50,797,'amount on an invoice is the sum of stored line-item amounts before GST.'),
+   (50,797,'Address ownership and immutable versions are expanded in diagram 04 / Business partner addresses.'),
    (50,824,'Numbering uses invoice_sequences; seller details use company_profile. Neither has an invoice foreign key.')])
 
 diagram('receipt-allocation.svg','02 / Allocate bank receipts to sales invoices','Many-to-many payments through invoice_allocations; all selected invoices must share the receipt partner.',1060,[
@@ -67,4 +67,18 @@ diagram('statement-import.svg','03 / Trace a receipt to its bank statement','Ban
 ],[(50,728,'Each transaction references one import and one account; the import also references one account.'),
    (50,755,'The importer writes matching account numbers. The schema has no composite FK enforcing that match.')])
 
-print('Generated and XML-validated 3 SVG diagrams.')
+diagram('business-partner-addresses.svg','04 / Business partner address versions','Invoices retain one address version. Corrections insert a new row; archiving preserves historical invoice links.',930,[
+ (425,125,350,'business_partners',['PK id','UQ name'],blue),
+ (50,400,470,'bp_addresses',['PK id (AUTOINCREMENT)','FK business_partner_id','address (immutable text)','gstin (immutable, optional)','FK previous_address_id (nullable)','is_archived','created_at'],purple),
+ (780,400,370,'sales_invoices',['PK id','FK business_partner_id','FK address_id (nullable)','invoice_number / invoice_date','seller_gstin (snapshot)','gst_treatment'],teal)
+],[
+ ('M425 210 H285 V400',[(397,199,'1'),(310,387,'0..*'),(281,291,'owns address versions')]),
+ ('M775 210 H965 V400',[(801,199,'1'),(989,387,'0..*'),(965,291,'owns invoices')]),
+ ('M520 535 H780',[(548,524,'0..1'),(752,524,'0..*'),(650,571,'selected address version')]),
+ ('M50 560 H20 V705 H300 V643',[(78,660,'0..1 prior'),(346,650,'0..1 successor'),(189,732,'previous_address_id + unique index')])
+],[(50,798,'Editing active address #10 creates #11 with previous_address_id = 10 and archives #10.'),
+   (50,825,'Existing invoices keep #10. New selections require an active address owned by the invoice partner.'),
+   (50,852,'An invoice may have no address only for an addressless partner or a retained legacy invoice.'),
+   (50,879,'Address text and GSTIN are versioned together; invoices retain seller GSTIN and the selected tax treatment.')])
+
+print('Generated and XML-validated 4 SVG diagrams.')

@@ -99,8 +99,9 @@
       </div>
 
       <div class="form-group">
-        <label>Payment Due In (Days)</label>
-        <input type="number" class="form-control" [(ngModel)]="formInvoice.due_in_days" (ngModelChange)="onDateChange()" min="0" placeholder="e.g. 30" />
+        <label for="payment-due-days">Payment Due In (Days)</label>
+        <input id="payment-due-days" type="text" inputmode="numeric" pattern="[0-9]*" class="form-control" [ngModel]="paymentDueDays" (ngModelChange)="onPaymentDueDaysChange($event)" placeholder="10" aria-describedby="payment-due-days-error" />
+        <small id="payment-due-days-error" role="alert" *ngIf="formInvoice.due_in_days === undefined || (formInvoice.invoice_date && !formInvoice.due_date)">Enter a nonnegative whole number of days that produces a valid due date.</small>
       </div>
 
       <div class="form-group">
@@ -118,6 +119,11 @@
       </div>
     </div>
 
+    <p class="gst-treatment" *ngIf="isINR">
+      Seller GSTIN: {{ sellerGSTIN || 'Not provided' }} / Buyer address GSTIN: {{ buyerGSTIN || 'Not provided' }}<br />
+      {{ gstTreatment === 'interstate' ? 'Interstate: IGST applies.' : 'CGST and SGST apply.' }}
+      <span *ngIf="!sellerGSTIN || !buyerGSTIN">Using the configured CGST/SGST fallback because a GSTIN is missing.</span>
+    </p>
     <!-- Line Items Section -->
     <div class="line-items-section">
       <div class="line-items-header">
@@ -131,7 +137,7 @@
         </button>
       </div>
 
-      <div class="line-items-table" *ngIf="lineItems.length > 0">
+      <div class="line-items-table" [class.has-tax]="isINR" *ngIf="lineItems.length > 0">
         <!-- Table Header -->
         <div class="li-header-row">
           <div class="li-col li-col-num">#</div>
@@ -139,7 +145,10 @@
           <div class="li-col li-col-hsn" *ngIf="isINR">HSN/SAC</div>
           <div class="li-col li-col-qty">Qty</div>
           <div class="li-col li-col-rate">Rate</div>
-          <div class="li-col li-col-gst" *ngIf="isINR">GST %</div>
+          <div class="li-col li-col-gst" *ngIf="isINR">Total GST %</div>
+          <div class="li-col li-col-tax" *ngIf="isINR">CGST %</div>
+          <div class="li-col li-col-tax" *ngIf="isINR">SGST %</div>
+          <div class="li-col li-col-tax" *ngIf="isINR">IGST %</div>
           <div class="li-col li-col-amount">Amount</div>
           <div class="li-col li-col-action"></div>
         </div>
@@ -168,6 +177,9 @@
               <option [ngValue]="28">28%</option>
             </select>
           </div>
+          <div class="li-col li-col-tax" *ngIf="isINR"><input type="text" [value]="taxPercent(item, 'cgst')" readonly [disabled]="gstTreatment !== 'intrastate'" [attr.aria-label]="'CGST percent for line ' + (i + 1)" /></div>
+          <div class="li-col li-col-tax" *ngIf="isINR"><input type="text" [value]="taxPercent(item, 'sgst')" readonly [disabled]="gstTreatment !== 'intrastate'" [attr.aria-label]="'SGST percent for line ' + (i + 1)" /></div>
+          <div class="li-col li-col-tax" *ngIf="isINR"><input type="text" [value]="taxPercent(item, 'igst')" readonly [disabled]="gstTreatment !== 'interstate'" [attr.aria-label]="'IGST percent for line ' + (i + 1)" /></div>
           <div class="li-col li-col-amount">
             <span class="amount-display">{{ item.amount | number:'1.2-2' }}</span>
           </div>
@@ -192,10 +204,9 @@
           <span class="total-label">Subtotal</span>
           <span class="total-value">{{ subtotal | number:'1.2-2' }}</span>
         </div>
-        <div class="total-row" *ngIf="isINR && totalGst > 0">
-          <span class="total-label">GST</span>
-          <span class="total-value">{{ totalGst | number:'1.2-2' }}</span>
-        </div>
+        <div class="total-row" *ngIf="gstTreatment === 'intrastate'"><span class="total-label">CGST</span><span class="total-value">{{ totalCGST | number:'1.2-2' }}</span></div>
+        <div class="total-row" *ngIf="gstTreatment === 'intrastate'"><span class="total-label">SGST</span><span class="total-value">{{ totalSGST | number:'1.2-2' }}</span></div>
+        <div class="total-row" *ngIf="gstTreatment === 'interstate'"><span class="total-label">IGST</span><span class="total-value">{{ totalIGST | number:'1.2-2' }}</span></div>
         <div class="total-row grand-total">
           <span class="total-label">Total ({{ formInvoice.currency }})</span>
           <span class="total-value">{{ grandTotal | number:'1.2-2' }}</span>

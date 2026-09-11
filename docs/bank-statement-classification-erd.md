@@ -1,7 +1,7 @@
-﻿# Bank statement classification: entity relationship diagrams
+# Bank statement classification: entity relationship diagrams
 
 These diagrams describe the implemented SQLite schema, including the allocation
-migration. They are split by use case and show selected columns to keep each
+and address-version migrations. They are split by use case and show selected columns to keep each
 view readable. Each SVG is standalone, scalable, and can be opened in a browser
 or embedded in another document.
 
@@ -15,6 +15,8 @@ or embedded in another document.
 | --- | --- | --- |
 | `business_partners` | `sales_invoices` | A partner has zero or many invoices. Each invoice requires one partner. |
 | `business_partners` | `business_partner_contacts` | A partner has zero or many contacts. Each contact requires one partner. |
+| `business_partners` | `bp_addresses` | A partner owns zero or many immutable address versions. |
+| `bp_addresses` | `sales_invoices` | An address version can be used by many invoices; an invoice has zero or one address ID. See the expanded address diagram below. |
 | `business_partner_contacts` | `sales_invoices` | A contact can appear on zero or many invoices. An invoice has zero or one contact. |
 | `sales_invoices` | `sales_invoice_line_items` | An invoice has zero or many stored line items. Each item requires one invoice. The creation UI requires line items. |
 
@@ -32,7 +34,7 @@ Two supporting tables are intentionally omitted from the connected diagram:
 | Table | Key and purpose | Relationship to invoices |
 | --- | --- | --- |
 | `invoice_sequences` | PK `financial_year`; `last_number` tracks numbering within a financial year. | Used by invoice creation code. `sales_invoices.financial_year` is not a foreign key. |
-| `company_profile` | Singleton PK `id`, constrained to 1; seller name, address and tax/contact details. | Read when rendering invoices; no invoice foreign key or per-invoice seller snapshot. |
+| `company_profile` | Singleton PK `id`, constrained to 1; seller name, address and tax/contact details. | Read when rendering invoices; no invoice foreign key. Seller GSTIN is copied to each invoice as a snapshot. |
 
 ## 2. Allocate a receipt to one or more invoices
 
@@ -58,16 +60,16 @@ partner. This matching-partner rule is not a composite database foreign key.
 ### Example: combined and partial receipts
 
 Both invoices below belong to partner 1 and use INR. Each contains a base amount
-of 100 and GST of 18, so each expects 90 in cash under the configured rule.
+of 100 and GST of 18, so each expects 108 in cash under the configured rule.
 
 | Bank transaction | Sales invoice | Allocation amount |
 | --- | --- | ---: |
-| Receipt 101: deposit 150 | Invoice 11 | 90 |
-| Receipt 101: deposit 150 | Invoice 12 | 60 |
+| Receipt 101: deposit 168 | Invoice 11 | 108 |
+| Receipt 101: deposit 168 | Invoice 12 | 60 |
 | Receipt 102: deposit 20 | Invoice 12 | 20 |
 
 These are three rows in `invoice_allocations`. Invoice 11 is settled. Invoice 12
-has received 80 and has 10 outstanding. Receipt 101 demonstrates several invoices
+has received 80 and has 28 outstanding. Receipt 101 demonstrates several invoices
 on one payment; invoice 12 demonstrates several payments against one invoice.
 An invoice belonging to partner 2 cannot be added to receipt 101.
 
@@ -78,14 +80,16 @@ An invoice belonging to partner 2 cannot be added to receipt 101.
 | `amount` | Stored in `sales_invoices` | Total before GST. |
 | `is_closed` | Stored in `sales_invoices` | Manual flag preventing new or changed allocations. |
 | `amount` | Stored in `invoice_allocations` | Cash allocated to this invoice from this receipt. |
-| `expected_receipt` | Calculated in the invoice API response | INR: round invoice amount times 0.90 to two decimals. Other currencies: rounded invoice amount. |
+| `expected_receipt` | Calculated in the invoice API response | INR: round pre-GST invoice amount times 0.90 plus total line-item GST to two decimals. Other currencies: rounded invoice amount. |
 | `received_amount` | Calculated in the invoice API response | Rounded sum of allocations for the invoice. |
 | `outstanding_amount` | Calculated in the invoice API response | Rounded maximum of zero and expected minus received. |
 | `is_settled` | Calculated in the invoice API response | True when outstanding equals zero. |
 
 For the requested INR example, `100 + 18 GST = 118` invoiced, with
-`118 - 18 GST - 10 TDS = 90` expected cash. The implementation uses the stored
-base of 100 directly and multiplies it by 0.90. The 10% rate is fixed in code;
+`100 - 10 TDS + 18 GST = 108` expected cash. For a base of 209,000 with
+37,620 GST, expected cash is `209,000 - 20,900 + 37,620 = 225,720`. GST
+is summed from each line item at its stored GST rate, and TDS applies only to
+the base. The 10% TDS rate is fixed in code;
 there is no stored per-invoice TDS rate or tax-posting table.
 
 Partial payments do not trigger any tolerance settlement or write-off.
@@ -151,6 +155,36 @@ until explicitly allocated.
 also stores `account_no` directly. The importer writes matching account numbers,
 but the two independent foreign keys do not enforce that match themselves.
 
+## 4. Preserve business partner address history
+
+![Business partner address ERD](diagrams/business-partner-addresses.svg)
+
+[Open the address version SVG](diagrams/business-partner-addresses.svg).
+
+`bp_addresses.id` is an auto-incrementing primary key. Each row belongs to one
+business partner and stores its optional GSTIN. Editing the address or GSTIN
+creates a new row linked through `previous_address_id`
+and archives the previous row. The unique index on `previous_address_id` permits
+at most one immediate successor per version. An independent address has no
+previous version.
+
+`sales_invoices.address_id` references the selected version. Archived versions
+remain readable by existing invoices but cannot be newly selected. Invoice
+responses and PDF output resolve this address ID, so editing the partner does
+not rewrite historical invoice addresses. The legacy partner `billing_address`
+field is retained for compatibility; it is not the invoice's address source.
+
+The invoice setup diagram includes the address FK; this separate view expands
+its relationships without crowding the contact and line-item diagram. Seller GSTIN and `gst_treatment` are stored on each invoice; the CGST/SGST/IGST
+components are derived from the saved treatment and line-item total GST rates.
+See [GST split rules](invoice-gst.md). Address
+fields and keys are enforced by SQLite constraints and triggers. The application
+also requires a selection when raising an invoice for a partner with addresses;
+legacy invoices and partners with no addresses may retain a null address ID.
+
+See [Business partner addresses](business-partner-addresses.md) for migration,
+API payloads and versioning examples.
+
 ## Diagram notation and maintenance
 
 `PK` means primary key, `FK` foreign key, and `UQ` unique. Cardinalities appear
@@ -162,7 +196,10 @@ teal cards show invoices or transaction details, and purple shows allocations.
 
 The source of truth is [core/db.go](../core/db.go) for the base schema and invoice
 persistence, and [core/allocations.go](../core/allocations.go) for the allocation
-schema, closure migration and balance rules. The diagrams describe the schema
+schema, closure migration and balance rules.
+[core/bp_addresses.go](../core/bp_addresses.go) defines address versions,
+invoice address rules, and the legacy-address migration.
+[core/gst_tax.go](../core/gst_tax.go) defines GSTIN migration and tax-component rules. The diagrams describe the schema
 after startup migrations, rather than assuming a local database is up to date.
 
 Regenerate the SVGs using Python's standard library:

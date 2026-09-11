@@ -1,3 +1,4 @@
+import { invoiceGSTTreatment, roundTax } from '../gst';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -26,6 +27,7 @@ export class ListComponent implements OnInit {
 
   formInvoice: SalesInvoice = this.emptyInvoice();
   lineItems: InvoiceLineItem[] = [];
+  paymentDueDays = '10';
 
   // Computed totals
   subtotal = 0;
@@ -34,6 +36,18 @@ export class ListComponent implements OnInit {
 
   get isINR(): boolean {
     return this.formInvoice.currency === 'INR';
+  }
+
+  get sellerGSTIN() { return this.isEditMode ? this.formInvoice.seller_gstin ?? '' : this.companyProfile?.gstin || ''; }
+  get buyerGSTIN() { return this.selectedBPAddresses.find(a => a.id === this.formInvoice.address_id)?.gstin || ''; }
+  get gstTreatment() { return invoiceGSTTreatment(this.formInvoice.currency, this.sellerGSTIN, this.buyerGSTIN); }
+  get totalCGST() { return this.gstTreatment === 'intrastate' ? roundTax(roundTax(this.totalGst) / 2) : 0; }
+  get totalSGST() { return this.gstTreatment === 'intrastate' ? roundTax(roundTax(this.totalGst) - this.totalCGST) : 0; }
+  get totalIGST() { return this.gstTreatment === 'interstate' ? roundTax(this.totalGst) : 0; }
+  taxPercent(item: InvoiceLineItem, tax: 'cgst' | 'sgst' | 'igst') {
+    if (this.gstTreatment === 'none') return 0;
+    return tax === 'igst' ? (this.gstTreatment === 'interstate' ? item.gst_percent : 0)
+      : (this.gstTreatment === 'intrastate' ? item.gst_percent / 2 : 0);
   }
 
   get selectedBPContacts() {
@@ -53,7 +67,13 @@ export class ListComponent implements OnInit {
   }
 
   onBusinessPartnerChange() {
-    this.formInvoice.address_id = this.activeAddresses.length === 1 ? this.activeAddresses[0].id : null;
+    const currency = this.businessPartners.find(p => p.id === this.formInvoice.business_partner_id)?.invoice_currency?.trim().toUpperCase();
+    if (currency && currency !== this.formInvoice.currency) {
+      if (!this.currencies.includes(currency)) this.currencies = [...this.currencies, currency];
+      this.formInvoice.currency = currency;
+      this.onCurrencyChange();
+    }
+    this.formInvoice.address_id = this.activeAddresses[0]?.id ?? null;
     const contacts = this.selectedBPContacts;
     if (contacts.length > 0) {
       const primary = contacts.find(c => c.is_primary) || contacts[0];
@@ -63,28 +83,33 @@ export class ListComponent implements OnInit {
     }
   }
 
+  onPaymentDueDaysChange(value: string) {
+    this.paymentDueDays = value;
+    const days = /^\d+$/.test(value) ? Number(value) : NaN;
+    this.formInvoice.due_in_days = Number.isSafeInteger(days) ? days : undefined;
+    this.onDateChange();
+  }
+
   onDateChange() {
     this.formInvoice.financial_year = this.financialYear(this.formInvoice.invoice_date);
-    if (this.formInvoice.invoice_date && this.formInvoice.due_in_days !== undefined) {
+    const days = this.formInvoice.due_in_days;
+    if (this.formInvoice.invoice_date && days !== undefined && Number.isInteger(days) && days >= 0) {
       const date = new Date(this.formInvoice.invoice_date);
-      date.setDate(date.getDate() + this.formInvoice.due_in_days);
-      this.formInvoice.due_date = date.toISOString().split('T')[0];
+      date.setUTCDate(date.getUTCDate() + days);
+      this.formInvoice.due_date = Number.isFinite(date.getTime()) && date.getUTCFullYear() <= 9999
+        ? date.toISOString().split('T')[0] : '';
     } else {
-      this.formInvoice.due_date = this.formInvoice.invoice_date;
+      this.formInvoice.due_date = '';
     }
   }
 
   // AG Grid Column Definitions
   public columnDefs: ColDef[] = [
-    { field: 'is_closed', headerName: 'Closed', width: 100 },
-    { field: 'expected_receipt', headerName: 'Expected receipt', width: 150 },
-    { field: 'received_amount', headerName: 'Received', width: 130 },
-    { field: 'outstanding_amount', headerName: 'Outstanding', width: 140 },
-    { field: 'invoice_number', headerName: 'Invoice #', flex: 1, sortable: true, filter: true },
-    { field: 'financial_year', headerName: 'FY', width: 110, sortable: true, filter: true },
-    { field: 'business_partner_name', headerName: 'Business Partner', flex: 1.5, sortable: true, filter: true },
-    { field: 'invoice_date', headerName: 'Date', width: 120, sortable: true, filter: true },
-    { field: 'due_date', headerName: 'Due Date', width: 120, sortable: true, filter: true },
+    {
+      field: 'invoice_number', headerName: 'Invoice #', flex: 1, minWidth: 170,
+      sortable: true, filter: true, initialSort: 'asc',
+      comparator: (a, b) => String(a ?? '').localeCompare(String(b ?? ''), 'en', { numeric: true })
+    },
     { field: 'currency', headerName: 'Currency', width: 100, sortable: true, filter: true },
     {
       field: 'amount', headerName: 'Amount', width: 140, sortable: true,
@@ -94,6 +119,22 @@ export class ListComponent implements OnInit {
       },
       cellStyle: { textAlign: 'right' }
     },
+    { field: 'invoice_date', headerName: 'Invoice Date', width: 130, sortable: true, filter: true },
+    {
+      field: 'business_partner_name', headerName: 'Business Partner & Address',
+      flex: 2, minWidth: 280, sortable: true, filter: true,
+      // Use the invoice's selected address version, including archived addresses.
+      valueGetter: (params) => [params.data?.business_partner_name, params.data?.billing_address]
+        .filter(Boolean).join('\n'),
+      wrapText: true, autoHeight: true,
+      cellStyle: { whiteSpace: 'pre-line', lineHeight: '20px', paddingTop: '8px', paddingBottom: '8px', overflowWrap: 'anywhere' }
+    },
+    { field: 'financial_year', headerName: 'FY', width: 110, sortable: true, filter: true },
+    { field: 'due_date', headerName: 'Due Date', width: 120, sortable: true, filter: true },
+    { field: 'is_closed', headerName: 'Closed', width: 100 },
+    { field: 'expected_receipt', headerName: 'Expected receipt', width: 150 },
+    { field: 'received_amount', headerName: 'Received', width: 130 },
+    { field: 'outstanding_amount', headerName: 'Outstanding', width: 140 },
     {
       headerName: 'Items',
       width: 80,
@@ -172,6 +213,7 @@ export class ListComponent implements OnInit {
 
   switchToCreate() {
     this.formInvoice = this.emptyInvoice();
+    this.paymentDueDays = '10';
     this.lineItems = [];
     this.isEditMode = false;
     this.originalAddressID = null;
@@ -183,6 +225,8 @@ export class ListComponent implements OnInit {
 
   editInvoice(inv: SalesInvoice) {
     this.formInvoice = { ...inv };
+    this.paymentDueDays = String(inv.due_in_days ?? 0);
+    this.formInvoice.due_in_days = inv.due_in_days ?? 0;
     this.originalAddressID = inv.address_id || null;
     this.originalPartnerID = inv.business_partner_id;
     this.lineItems = (inv.line_items || []).map(li => ({ ...li }));
@@ -196,13 +240,14 @@ export class ListComponent implements OnInit {
     this.activeTab = 'view';
     this.isEditMode = false;
     this.formInvoice = this.emptyInvoice();
+    this.paymentDueDays = '10';
     this.lineItems = [];
   }
 
   // Line item management
   addLineItem() {
     this.lineItems.push({
-      description: '',
+      description: this.isINR ? '' : 'Architectural Services for CAD Documentation',
       hsn_sac_code: '',
       quantity: 1,
       rate: 0,
@@ -245,6 +290,11 @@ export class ListComponent implements OnInit {
     if (!inv.financial_year || !inv.business_partner_id ||
         !inv.invoice_date || !inv.currency) {
       alert('Please fill out all header fields.');
+      return;
+    }
+
+    if (inv.due_in_days === undefined || !inv.due_date) {
+      alert('Enter payment due days as a nonnegative whole number that produces a valid due date.');
       return;
     }
 
@@ -316,7 +366,7 @@ export class ListComponent implements OnInit {
       financial_year: this.financialYear(new Date().toISOString().split('T')[0]),
       business_partner_id: 0,
       invoice_date: new Date().toISOString().split('T')[0],
-      due_in_days: 0,
+      due_in_days: 10,
       currency: 'INR',
       amount: 0,
       line_items: []
@@ -329,13 +379,17 @@ export class ListComponent implements OnInit {
     const subtotal = items.reduce((s, li) => s + li.amount, 0);
     const gstTotal = isInr ? items.reduce((s, li) => s + (li.amount * li.gst_percent / 100), 0) : 0;
     const grand = subtotal + gstTotal;
+    const treatment = inv.gst_treatment || invoiceGSTTreatment(inv.currency, inv.seller_gstin || '', inv.buyer_gstin || '');
+    const cgst = treatment === 'intrastate' ? roundTax(roundTax(gstTotal) / 2) : 0;
+    const sgst = treatment === 'intrastate' ? roundTax(roundTax(gstTotal) - cgst) : 0;
+    const igst = treatment === 'interstate' ? roundTax(gstTotal) : 0;
 
     const fmt = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const fmtDate = (d: string) => {
       try { return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); }
       catch { return d; }
     };
-    const esc = (s: string) => (s || '').replace(/\n/g, '<br/>');
+    const esc = (s: string) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>');
 
     // Look up the business partner for full details
     const bp = this.businessPartners.find(p => p.id === inv.business_partner_id);
@@ -353,7 +407,7 @@ export class ListComponent implements OnInit {
         ${isInr ? `<td>${li.hsn_sac_code || '-'}</td>` : ''}
         <td style="text-align:right">${li.quantity}</td>
         <td style="text-align:right">${fmt(li.rate)}</td>
-        ${isInr ? `<td style="text-align:center">${li.gst_percent}%</td>` : ''}
+        ${isInr ? `<td style="text-align:center">${treatment === 'intrastate' ? li.gst_percent / 2 : 0}%</td><td style="text-align:center">${treatment === 'intrastate' ? li.gst_percent / 2 : 0}%</td><td style="text-align:center">${treatment === 'interstate' ? li.gst_percent : 0}%</td>` : ''}
         ${isInr ? `<td style="text-align:right">${fmt(gstAmt)}</td>` : ''}
         <td style="text-align:right">${fmt(li.amount + gstAmt)}</td>
       </tr>`;
@@ -422,14 +476,14 @@ export class ListComponent implements OnInit {
         <h4>From (Seller)</h4>
         ${cp?.company_name ? `<div class="name">${cp.company_name}</div>` : '<div class="name">-</div>'}
         ${cp?.address ? `<div class="detail">${esc(cp.address)}</div>` : ''}
-        ${cp?.gstin ? `<div class="tax-label">GSTIN</div><div class="tax-value">${cp.gstin}</div>` : ''}
+        ${inv.seller_gstin ? `<div class="tax-label">GSTIN</div><div class="tax-value">${esc(inv.seller_gstin)}</div>` : ''}
         ${cp?.pan ? `<div class="tax-label">PAN</div><div class="tax-value">${cp.pan}</div>` : ''}
       </div>
       <div class="party-block" style="text-align:right">
         <h4>Bill To (Buyer)</h4>
         <div class="name">${bp?.name || inv.business_partner_name || 'N/A'}</div>
         ${inv.billing_address ? `<div class="detail">${esc(inv.billing_address)}</div>` : ''}
-        ${bp?.tax_information ? `<div class="tax-label">Tax Info</div><div class="tax-value">${bp.tax_information}</div>` : ''}
+        ${inv.buyer_gstin ? `<div class="tax-label">GSTIN</div><div class="tax-value">${esc(inv.buyer_gstin)}</div>` : ''}
         
         ${contact ? `
         <div style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed #e2e8f0; display: inline-block; text-align: right;">
@@ -449,7 +503,7 @@ export class ListComponent implements OnInit {
           ${isInr ? '<th>HSN/SAC</th>' : ''}
           <th style="text-align:right">Qty</th>
           <th style="text-align:right">Rate</th>
-          ${isInr ? '<th style="text-align:center">GST %</th>' : ''}
+          ${isInr ? '<th>CGST %</th><th>SGST %</th><th>IGST %</th>' : ''}
           ${isInr ? '<th style="text-align:right">GST Amt</th>' : ''}
           <th style="text-align:right">Total</th>
         </tr>
@@ -462,7 +516,8 @@ export class ListComponent implements OnInit {
     <div class="totals">
       <table class="totals-table">
         <tr><td class="label">Subtotal</td><td class="value">${fmt(subtotal)}</td></tr>
-        ${isInr && gstTotal > 0 ? `<tr><td class="label">GST</td><td class="value">${fmt(gstTotal)}</td></tr>` : ''}
+        ${isInr && treatment === 'intrastate' ? `<tr><td class="label">CGST</td><td class="value">${fmt(cgst)}</td></tr><tr><td class="label">SGST</td><td class="value">${fmt(sgst)}</td></tr>` : ''}
+        ${isInr && treatment === 'interstate' ? `<tr><td class="label">IGST</td><td class="value">${fmt(igst)}</td></tr>` : ''}
         <tr class="grand"><td class="label">Total (${inv.currency})</td><td class="value">${fmt(grand)}</td></tr>
       </table>
     </div>

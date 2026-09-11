@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
-	"reflect"
 	"strings"
 )
 
@@ -50,14 +49,21 @@ func initAllocations(db *sql.DB) error {
 	return err
 }
 func money(v float64) float64 { return math.Round(v*100) / 100 }
-func expectedReceipt(currency string, amount float64) float64 {
+
+// Expected INR cash includes GST; 10% TDS applies only to the pre-GST base.
+func expectedReceipt(currency string, amount, gstAmount float64) float64 {
 	if strings.EqualFold(currency, "INR") {
-		return money(amount * .9)
+		return money(amount*.9 + gstAmount)
 	}
 	return money(amount)
 }
 func invoiceBalance(db *sql.DB, inv *SalesInvoice) error {
-	inv.ExpectedReceipt = expectedReceipt(inv.Currency, inv.Amount)
+	populateInvoiceGST(inv)
+	var gstAmount float64
+	for _, item := range inv.LineItems {
+		gstAmount += item.Amount * item.GstPercent / 100
+	}
+	inv.ExpectedReceipt = expectedReceipt(inv.Currency, inv.Amount, gstAmount)
 	if err := db.QueryRow(`SELECT COALESCE(SUM(amount),0) FROM invoice_allocations WHERE sales_invoice_id=?`, inv.ID).Scan(&inv.ReceivedAmount); err != nil {
 		return err
 	}
@@ -87,12 +93,11 @@ func sameInvoiceItems(a, b []InvoiceLineItem) bool {
 		return false
 	}
 	for i := range a {
-		a[i].ID = 0
-		a[i].SalesInvoiceID = 0
-		b[i].ID = 0
-		b[i].SalesInvoiceID = 0
+		if a[i].Description != b[i].Description || a[i].HsnSacCode != b[i].HsnSacCode || a[i].Quantity != b[i].Quantity || a[i].Rate != b[i].Rate || a[i].GstPercent != b[i].GstPercent || a[i].Amount != b[i].Amount {
+			return false
+		}
 	}
-	return reflect.DeepEqual(a, b)
+	return true
 }
 
 // AllocateTransaction replaces a payment's allocations atomically. Amounts use the
@@ -148,9 +153,11 @@ func AllocateTransaction(db *sql.DB, id int, head, sub, legacy string, partner *
 		seen[a.SalesInvoiceID] = true
 		var bp int
 		var invCurrency, number string
-		var amount, paid float64
+		var amount, paid, gstAmount float64
 		var closed bool
-		if err = tx.QueryRow(`SELECT business_partner_id,currency,invoice_number,amount,is_closed FROM sales_invoices WHERE id=?`, a.SalesInvoiceID).Scan(&bp, &invCurrency, &number, &amount, &closed); err != nil {
+		if err = tx.QueryRow(`SELECT business_partner_id,currency,invoice_number,amount,is_closed,
+ COALESCE((SELECT SUM(li.amount * li.gst_percent / 100.0) FROM sales_invoice_line_items li WHERE li.sales_invoice_id=sales_invoices.id),0)
+ FROM sales_invoices WHERE id=?`, a.SalesInvoiceID).Scan(&bp, &invCurrency, &number, &amount, &closed, &gstAmount); err != nil {
 			return fmt.Errorf("invoice %d: %w", a.SalesInvoiceID, err)
 		}
 		if bp != *partner {
@@ -172,7 +179,7 @@ func AllocateTransaction(db *sql.DB, id int, head, sub, legacy string, partner *
 		if err = tx.QueryRow(`SELECT COALESCE(SUM(amount),0) FROM invoice_allocations WHERE sales_invoice_id=? AND bank_transaction_id<>?`, a.SalesInvoiceID, id).Scan(&paid); err != nil {
 			return err
 		}
-		if money(paid+a.Amount) > expectedReceipt(invCurrency, amount) {
+		if money(paid+a.Amount) > expectedReceipt(invCurrency, amount, gstAmount) {
 			return fmt.Errorf("allocation exceeds outstanding amount for %s", number)
 		}
 		total += a.Amount

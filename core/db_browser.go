@@ -207,6 +207,9 @@ func singleBrowserStatement(query string) bool {
 }
 func BrowserSQL(ctx context.Context, conn *sql.Conn, query, mode string) (DBResult, error) {
 	result := DBResult{Columns: []string{}, Rows: [][]any{}}
+	if err := ctx.Err(); err != nil {
+		return result, err
+	}
 	if strings.TrimSpace(query) == "" || strings.ContainsRune(query, 0) {
 		return result, fmt.Errorf("enter SQL without NUL characters")
 	}

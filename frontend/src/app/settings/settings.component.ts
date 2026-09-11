@@ -49,7 +49,7 @@ export class SettingsComponent implements OnInit {
         setTimeout(() => this.saveSuccess = false, 3000);
       },
       error: (err) => {
-        alert('Failed to save: ' + err.message);
+        alert('Failed to save: ' + (typeof err.error === 'string' ? err.error : err.message));
         this.isSaving = false;
       }
     });

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	_ "modernc.org/sqlite"
+	"modernc.org/sqlite"
 )
 
 // ImportRecord represents a record from the imports table.
@@ -20,17 +20,14 @@ type ImportRecord struct {
 
 // InitDB initializes the database and returns the connection.
 func InitDB(dbPath string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", dbPath)
+	connector, err := sqlite.NewConnector(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)
 	}
-
-	// Enable foreign key enforcement — SQLite has this OFF by default.
-	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
-		return nil, fmt.Errorf("enable foreign keys: %w", err)
-	}
+	db := sql.OpenDB(foreignKeyConnector{connector})
 
 	if err := createTables(db); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("create tables: %w", err)
 	}
 	if err := repairBlankInvoiceNumbers(db); err != nil {
@@ -42,6 +39,10 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		return nil, err
 	}
 	if err := initBPAddresses(db); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if err := initGST(db); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -577,7 +578,7 @@ func GetBusinessPartners(db *sql.DB, query string) ([]BusinessPartner, error) {
 func GetSalesInvoices(db *sql.DB) ([]SalesInvoice, error) {
 	rows, err := db.Query(`
 		SELECT s.id, s.invoice_number, s.financial_year, s.business_partner_id, bp.name, 
-		       s.contact_id, s.invoice_date, s.due_in_days, s.due_date, s.currency, s.amount, s.is_closed, s.address_id, COALESCE(a.address,'')
+		       s.contact_id, s.invoice_date, s.due_in_days, s.due_date, s.currency, s.amount, s.is_closed, s.address_id, COALESCE(a.address,''), s.seller_gstin, COALESCE(a.gstin,''), s.gst_treatment
 		FROM sales_invoices s
 		LEFT JOIN business_partners bp ON s.business_partner_id = bp.id
  LEFT JOIN bp_addresses a ON s.address_id = a.id
@@ -595,7 +596,7 @@ func GetSalesInvoices(db *sql.DB) ([]SalesInvoice, error) {
 		var contactID sql.NullInt64
 		if err := rows.Scan(
 			&inv.ID, &inv.InvoiceNumber, &inv.FinancialYear, &inv.BusinessPartnerID, &bpName,
-			&contactID, &inv.InvoiceDate, &inv.DueInDays, &inv.DueDate, &inv.Currency, &inv.Amount, &inv.IsClosed, &inv.AddressID, &inv.BillingAddress,
+			&contactID, &inv.InvoiceDate, &inv.DueInDays, &inv.DueDate, &inv.Currency, &inv.Amount, &inv.IsClosed, &inv.AddressID, &inv.BillingAddress, &inv.SellerGSTIN, &inv.BuyerGSTIN, &inv.GSTTreatment,
 		); err != nil {
 			return nil, err
 		}
@@ -627,14 +628,14 @@ func GetSalesInvoiceByID(db *sql.DB, id int) (SalesInvoice, error) {
 	var contactID sql.NullInt64
 	err := db.QueryRow(`
 		SELECT s.id, s.invoice_number, s.financial_year, s.business_partner_id, bp.name, 
-		       s.contact_id, s.invoice_date, s.due_in_days, s.due_date, s.currency, s.amount, s.is_closed, s.address_id, COALESCE(a.address,'')
+		       s.contact_id, s.invoice_date, s.due_in_days, s.due_date, s.currency, s.amount, s.is_closed, s.address_id, COALESCE(a.address,''), s.seller_gstin, COALESCE(a.gstin,''), s.gst_treatment
 		FROM sales_invoices s
 		LEFT JOIN business_partners bp ON s.business_partner_id = bp.id
  LEFT JOIN bp_addresses a ON s.address_id = a.id
 		WHERE s.id = ?
 	`, id).Scan(
 		&inv.ID, &inv.InvoiceNumber, &inv.FinancialYear, &inv.BusinessPartnerID, &bpName,
-		&contactID, &inv.InvoiceDate, &inv.DueInDays, &inv.DueDate, &inv.Currency, &inv.Amount, &inv.IsClosed, &inv.AddressID, &inv.BillingAddress,
+		&contactID, &inv.InvoiceDate, &inv.DueInDays, &inv.DueDate, &inv.Currency, &inv.Amount, &inv.IsClosed, &inv.AddressID, &inv.BillingAddress, &inv.SellerGSTIN, &inv.BuyerGSTIN, &inv.GSTTreatment,
 	)
 	if err != nil {
 		return inv, err
@@ -737,6 +738,9 @@ func CreateSalesInvoice(db *sql.DB, inv SalesInvoice) (int, error) {
 	if err := validateInvoiceAddress(tx, inv, nil, 0); err != nil {
 		return 0, err
 	}
+	if err := invoiceGSTContext(tx, &inv, false); err != nil {
+		return 0, err
+	}
 	inv.InvoiceNumber, err = nextInvoiceNumber(tx, fy)
 	if err != nil {
 		return 0, err
@@ -749,9 +753,9 @@ func CreateSalesInvoice(db *sql.DB, inv SalesInvoice) (int, error) {
 	}
 
 	result, err := tx.Exec(`
-		INSERT INTO sales_invoices (invoice_number, financial_year, business_partner_id, contact_id, invoice_date, due_in_days, due_date, currency, amount, is_closed, address_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, inv.InvoiceNumber, inv.FinancialYear, inv.BusinessPartnerID, inv.ContactID, inv.InvoiceDate, inv.DueInDays, inv.DueDate, inv.Currency, total, inv.IsClosed, inv.AddressID)
+		INSERT INTO sales_invoices (invoice_number, financial_year, business_partner_id, contact_id, invoice_date, due_in_days, due_date, currency, amount, is_closed, address_id, seller_gstin, gst_treatment)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, inv.InvoiceNumber, inv.FinancialYear, inv.BusinessPartnerID, inv.ContactID, inv.InvoiceDate, inv.DueInDays, inv.DueDate, inv.Currency, total, inv.IsClosed, inv.AddressID, inv.SellerGSTIN, inv.GSTTreatment)
 	if err != nil {
 		return 0, err
 	}
@@ -794,6 +798,9 @@ func UpdateSalesInvoice(db *sql.DB, inv SalesInvoice) error {
 	if err := validateInvoiceAddress(tx, inv, originalAddress, partner); err != nil {
 		return err
 	}
+	if err := invoiceGSTContext(tx, &inv, true); err != nil {
+		return err
+	}
 	originalFY, err := InvoiceFinancialYear(originalDate)
 	if err != nil {
 		return err
@@ -832,7 +839,7 @@ func UpdateSalesInvoice(db *sql.DB, inv SalesInvoice) error {
 	for _, item := range inv.LineItems {
 		total += item.Amount
 	}
-	if _, err := tx.Exec(`UPDATE sales_invoices SET business_partner_id=?,contact_id=?,invoice_date=?,due_in_days=?,due_date=?,currency=?,amount=?,is_closed=?,address_id=? WHERE id=?`, inv.BusinessPartnerID, inv.ContactID, inv.InvoiceDate, inv.DueInDays, inv.DueDate, inv.Currency, total, inv.IsClosed, inv.AddressID, inv.ID); err != nil {
+	if _, err := tx.Exec(`UPDATE sales_invoices SET business_partner_id=?,contact_id=?,invoice_date=?,due_in_days=?,due_date=?,currency=?,amount=?,is_closed=?,address_id=?,seller_gstin=?,gst_treatment=? WHERE id=?`, inv.BusinessPartnerID, inv.ContactID, inv.InvoiceDate, inv.DueInDays, inv.DueDate, inv.Currency, total, inv.IsClosed, inv.AddressID, inv.SellerGSTIN, inv.GSTTreatment, inv.ID); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(`DELETE FROM sales_invoice_line_items WHERE sales_invoice_id=?`, inv.ID); err != nil {
@@ -858,7 +865,12 @@ func GetCompanyProfile(db *sql.DB) (CompanyProfile, error) {
 
 // SaveCompanyProfile updates the singleton company profile.
 func SaveCompanyProfile(db *sql.DB, p CompanyProfile) error {
-	_, err := db.Exec(`
+	var err error
+	p.GSTIN, err = normalizeGSTIN(p.GSTIN)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`
 		UPDATE company_profile
 		SET company_name = ?, address = ?, gstin = ?, pan = ?, email = ?, phone = ?
 		WHERE id = 1

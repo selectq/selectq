@@ -30,7 +30,7 @@ export class FormComponent implements OnInit, OnDestroy {
     this.bpForm = this.fb.group({
       name: ['', Validators.required],
       billing_address: [''],
-      addresses: [[], (c: {value: BPAddress[]}) => (c.value || []).every(a => a.address.trim()) ? null : { blankAddress: true }],
+      addresses: [[], (c: {value: BPAddress[]}) => (c.value || []).every(a => a.address.trim() && (!a.gstin || /^[0-9]{2}[A-Z0-9]{13}$/.test(a.gstin.trim().toUpperCase()))) ? null : { blankAddress: true }],
       invoice_currency: ['USD', Validators.required],
       tax_information: [''],
       contacts: this.fb.array([])

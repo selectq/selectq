@@ -78,6 +78,13 @@ type BusinessPartner struct {
 
 // SalesInvoice represents a sales invoice stored in the system.
 type SalesInvoice struct {
+	SellerGSTIN         string            `json:"seller_gstin"`
+	BuyerGSTIN          string            `json:"buyer_gstin"`
+	GSTTreatment        string            `json:"gst_treatment"`
+	GSTAmount           float64           `json:"gst_amount"`
+	CGSTAmount          float64           `json:"cgst_amount"`
+	SGSTAmount          float64           `json:"sgst_amount"`
+	IGSTAmount          float64           `json:"igst_amount"`
 	AddressID           *int              `json:"address_id"`
 	BillingAddress      string            `json:"billing_address"`
 	IsClosed            bool              `json:"is_closed"`
@@ -101,6 +108,9 @@ type SalesInvoice struct {
 
 // InvoiceLineItem represents a single line item on a sales invoice.
 type InvoiceLineItem struct {
+	CGSTPercent    float64 `json:"cgst_percent"`
+	SGSTPercent    float64 `json:"sgst_percent"`
+	IGSTPercent    float64 `json:"igst_percent"`
 	ID             int     `json:"id"`
 	SalesInvoiceID int     `json:"sales_invoice_id"`
 	Description    string  `json:"description"`

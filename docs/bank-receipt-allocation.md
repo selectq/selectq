@@ -9,9 +9,13 @@ are in invoice currency. Any unallocated receipt remains available on that bank
 transaction. This does not introduce a general-ledger journal system.
 
 INR invoice amounts in this application are stored before GST. Expected cash is
-90% of that amount, implementing the requested GST exclusion and fixed 10% TDS.
-Thus a 100 base plus 18 GST invoice expects 90 cash. Foreign invoices use their
+90% of that base plus the GST calculated from each line item. TDS is fixed at
+10% of the base and is not deducted from GST. A 100 base plus 18 GST invoice
+expects 108 cash. A 209,000 base plus 37,620 GST expects 225,720 cash.
+Outstanding equals expected cash minus allocated receipts. Foreign invoices use their
 full amount, and allocations require a matching bank forex currency and amount.
+Balances are calculated on read, so existing allocations are preserved and INR
+outstanding balances automatically reflect the corrected formula after restart.
 No tolerance or shortfall write-off is applied. A balance of 0.50 remains open.
 
 Edit an invoice and check Closed to prevent further allocations. Existing
@@ -31,7 +35,7 @@ PUT /api/transactions/{id} accepts allocations:
   "sub_account_head": "",
   "business_partner_id": 1,
   "allocations": [
-    {"sales_invoice_id": 1, "amount": 90},
+    {"sales_invoice_id": 1, "amount": 108},
     {"sales_invoice_id": 2, "amount": 60}
   ]
 }

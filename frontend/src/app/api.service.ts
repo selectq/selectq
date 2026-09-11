@@ -43,6 +43,7 @@ export interface BusinessPartnerContact {
 }
 
 export interface BPAddress {
+  gstin?: string;
   id?: number;
   business_partner_id?: number;
   address: string;
@@ -63,6 +64,9 @@ export interface BusinessPartner {
 }
 
 export interface InvoiceLineItem {
+  cgst_percent?: number;
+  sgst_percent?: number;
+  igst_percent?: number;
   id?: number;
   sales_invoice_id?: number;
   description: string;
@@ -74,6 +78,13 @@ export interface InvoiceLineItem {
 }
 
 export interface SalesInvoice {
+  seller_gstin?: string;
+  buyer_gstin?: string;
+  gst_treatment?: 'intrastate' | 'interstate' | 'none';
+  gst_amount?: number;
+  cgst_amount?: number;
+  sgst_amount?: number;
+  igst_amount?: number;
   address_id?: number | null;
   billing_address?: string;
   is_closed?: boolean;

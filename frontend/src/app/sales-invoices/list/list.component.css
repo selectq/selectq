@@ -360,3 +360,9 @@ select option {
   padding: 4rem 2rem;
   color: var(--text-secondary);
 }
+.gst-treatment { padding: .8rem 1rem; color: var(--text-secondary); line-height: 1.6; }
+.li-col-tax { width: 80px; flex-shrink: 0; }
+.li-col-tax input { width: 100%; text-align: right; }
+.li-col-tax input:disabled { opacity: .45; }
+.line-items-table { overflow-x: auto; }
+.has-tax .li-header-row, .has-tax .li-row { min-width: 1120px; }

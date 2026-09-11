@@ -37,7 +37,7 @@
       <option *ngFor="let bp of businessPartners" [ngValue]="bp.id">{{ bp.name }}</option>
     </select>
   </label>
-  <p>Enter amounts in the invoice currency. Partial payments leave the remaining balance open. INR expected receipts exclude GST and deduct 10% TDS.</p>
+  <p>Enter amounts in the invoice currency. Partial payments leave the remaining balance open. INR expected receipts include GST and deduct 10% TDS from the amount before GST.</p>
   <table>
     <thead><tr><th>Invoice</th><th>Currency</th><th>Expected</th><th>Received</th><th>Outstanding</th><th>This receipt</th></tr></thead>
     <tbody><tr *ngFor="let inv of availableInvoices">

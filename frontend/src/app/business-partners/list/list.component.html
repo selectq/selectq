@@ -61,6 +61,7 @@
         <div *ngFor="let address of selectedPartner.addresses" class="info-value address" style="margin-bottom: 1rem;">
           <small>#{{ address.id }} {{ address.is_archived ? '(archived)' : '(active)' }} <span *ngIf="address.previous_address_id">/ replaces #{{ address.previous_address_id }}</span></small>
           <div style="white-space: pre-wrap;">{{ address.address }}</div>
+          <div *ngIf="address.gstin">GSTIN: {{ address.gstin }}</div>
         </div>
       </div>
 

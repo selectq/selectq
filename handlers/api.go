@@ -361,7 +361,7 @@ func (s *Server) SaveCompanyProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := core.SaveCompanyProfile(s.DB, profile); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	json.NewEncoder(w).Encode(profile)
