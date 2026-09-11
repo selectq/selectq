@@ -286,9 +286,7 @@ func (s *Server) CreateSalesInvoice(w http.ResponseWriter, r *http.Request) {
 	// Return the full invoice with computed total and line items
 	created, err := core.GetSalesInvoiceByID(s.DB, id)
 	if err != nil {
-		inv.ID = id
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(inv)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)

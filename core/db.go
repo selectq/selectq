@@ -33,6 +33,10 @@ func InitDB(dbPath string) (*sql.DB, error) {
 	if err := createTables(db); err != nil {
 		return nil, fmt.Errorf("create tables: %w", err)
 	}
+	if err := repairBlankInvoiceNumbers(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("repair invoice numbers: %w", err)
+	}
 	return db, nil
 }
 
@@ -183,6 +187,15 @@ func createTables(db *sql.DB) error {
 		phone               TEXT DEFAULT '',
 		is_primary          BOOLEAN DEFAULT 0,
 		FOREIGN KEY (business_partner_id) REFERENCES business_partners(id) ON DELETE CASCADE
+	);
+
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_bpc_email_unique 
+	ON business_partner_contacts(email) 
+	WHERE email != '';
+
+	CREATE TABLE IF NOT EXISTS invoice_sequences (
+		financial_year TEXT PRIMARY KEY,
+		last_number INTEGER NOT NULL
 	);
 
 	CREATE TABLE IF NOT EXISTS sales_invoices (
@@ -420,7 +433,7 @@ func DeleteBusinessPartner(db *sql.DB, id int) error {
 			}
 			msg += p
 		}
-		return fmt.Errorf(msg)
+		return fmt.Errorf("%s", msg)
 	}
 
 	// Note: We don't need to manually delete contacts if PRAGMA foreign_keys = ON and ON DELETE CASCADE is set,
@@ -440,7 +453,7 @@ func GetBusinessPartnerByID(db *sql.DB, id int) (BusinessPartner, error) {
 	`, id).Scan(&p.ID, &p.Name, &p.BillingAddress, &p.InvoiceCurrency, &p.TaxInformation)
 	
 	if err == nil {
-		p.Contacts, _ = getBusinessPartnerContacts(db, p.ID)
+		p.Contacts, err = getBusinessPartnerContacts(db, p.ID)
 	}
 	
 	return p, err
@@ -456,14 +469,18 @@ func getBusinessPartnerContacts(db *sql.DB, bpID int) ([]BusinessPartnerContact,
 	}
 	defer rows.Close()
 
-	var contacts []BusinessPartnerContact
+	contacts := make([]BusinessPartnerContact, 0)
 	for rows.Next() {
 		var c BusinessPartnerContact
-		if err := rows.Scan(&c.ID, &c.BusinessPartnerID, &c.Name, &c.Email, &c.Phone, &c.IsPrimary); err == nil {
+		var isPrimary int
+		if err := rows.Scan(&c.ID, &c.BusinessPartnerID, &c.Name, &c.Email, &c.Phone, &isPrimary); err == nil {
+			c.IsPrimary = (isPrimary != 0)
 			contacts = append(contacts, c)
+		} else {
+			return nil, fmt.Errorf("reading contact for partner %d: %w", bpID, err)
 		}
 	}
-	return contacts, nil
+	return contacts, rows.Err()
 }
 
 
@@ -496,8 +513,19 @@ func GetBusinessPartners(db *sql.DB, query string) ([]BusinessPartner, error) {
 		if err := rows.Scan(&p.ID, &p.Name, &p.BillingAddress, &p.InvoiceCurrency, &p.TaxInformation); err != nil {
 			return nil, err
 		}
-		p.Contacts, _ = getBusinessPartnerContacts(db, p.ID)
 		partners = append(partners, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	for i := range partners {
+		partners[i].Contacts, err = getBusinessPartnerContacts(db, partners[i].ID)
+		if err != nil {
+			return nil, fmt.Errorf("loading contacts for partner %d: %w", partners[i].ID, err)
+		}
 	}
 	return partners, nil
 }
@@ -520,14 +548,19 @@ func GetSalesInvoices(db *sql.DB) ([]SalesInvoice, error) {
 	for rows.Next() {
 		var inv SalesInvoice
 		var bpName sql.NullString
+		var contactID sql.NullInt64
 		if err := rows.Scan(
 			&inv.ID, &inv.InvoiceNumber, &inv.FinancialYear, &inv.BusinessPartnerID, &bpName,
-			&inv.ContactID, &inv.InvoiceDate, &inv.DueInDays, &inv.DueDate, &inv.Currency, &inv.Amount,
+			&contactID, &inv.InvoiceDate, &inv.DueInDays, &inv.DueDate, &inv.Currency, &inv.Amount,
 		); err != nil {
 			return nil, err
 		}
 		if bpName.Valid {
 			inv.BusinessPartnerName = bpName.String
+		}
+		if contactID.Valid {
+			id := int(contactID.Int64)
+			inv.ContactID = &id
 		}
 		// Load line items for this invoice
 		items, err := GetLineItems(db, inv.ID)
@@ -544,6 +577,7 @@ func GetSalesInvoices(db *sql.DB) ([]SalesInvoice, error) {
 func GetSalesInvoiceByID(db *sql.DB, id int) (SalesInvoice, error) {
 	var inv SalesInvoice
 	var bpName sql.NullString
+	var contactID sql.NullInt64
 	err := db.QueryRow(`
 		SELECT s.id, s.invoice_number, s.financial_year, s.business_partner_id, bp.name, 
 		       s.contact_id, s.invoice_date, s.due_in_days, s.due_date, s.currency, s.amount
@@ -552,13 +586,17 @@ func GetSalesInvoiceByID(db *sql.DB, id int) (SalesInvoice, error) {
 		WHERE s.id = ?
 	`, id).Scan(
 		&inv.ID, &inv.InvoiceNumber, &inv.FinancialYear, &inv.BusinessPartnerID, &bpName,
-		&inv.ContactID, &inv.InvoiceDate, &inv.DueInDays, &inv.DueDate, &inv.Currency, &inv.Amount,
+		&contactID, &inv.InvoiceDate, &inv.DueInDays, &inv.DueDate, &inv.Currency, &inv.Amount,
 	)
 	if err != nil {
 		return inv, err
 	}
 	if bpName.Valid {
 		inv.BusinessPartnerName = bpName.String
+	}
+	if contactID.Valid {
+		idVal := int(contactID.Int64)
+		inv.ContactID = &idVal
 	}
 	items, err := GetLineItems(db, inv.ID)
 	if err != nil {
@@ -628,13 +666,27 @@ func SaveLineItems(db *sql.DB, invoiceID int, items []InvoiceLineItem) error {
 
 // CreateSalesInvoice creates a new sales invoice with its line items.
 func CreateSalesInvoice(db *sql.DB, inv SalesInvoice) (int, error) {
+	fy, err := InvoiceFinancialYear(inv.InvoiceDate)
+	if err != nil {
+		return 0, err
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	inv.InvoiceNumber, err = nextInvoiceNumber(tx, fy)
+	if err != nil {
+		return 0, err
+	}
+	inv.FinancialYear = fy
 	// Compute total from line items
 	var total float64
 	for _, item := range inv.LineItems {
 		total += item.Amount
 	}
 
-	result, err := db.Exec(`
+	result, err := tx.Exec(`
 		INSERT INTO sales_invoices (invoice_number, financial_year, business_partner_id, contact_id, invoice_date, due_in_days, due_date, currency, amount)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, inv.InvoiceNumber, inv.FinancialYear, inv.BusinessPartnerID, inv.ContactID, inv.InvoiceDate, inv.DueInDays, inv.DueDate, inv.Currency, total)
@@ -646,11 +698,15 @@ func CreateSalesInvoice(db *sql.DB, inv SalesInvoice) (int, error) {
 		return 0, err
 	}
 
-	// Save line items if provided
-	if len(inv.LineItems) > 0 {
-		if err := SaveLineItems(db, int(id), inv.LineItems); err != nil {
-			return 0, fmt.Errorf("saving line items: %w", err)
+	for _, item := range inv.LineItems {
+		if _, err := tx.Exec(`INSERT INTO sales_invoice_line_items
+			(sales_invoice_id, description, hsn_sac_code, quantity, rate, gst_percent, amount)
+			VALUES (?, ?, ?, ?, ?, ?, ?)`, id, item.Description, item.HsnSacCode, item.Quantity, item.Rate, item.GstPercent, item.Amount); err != nil {
+			return 0, err
 		}
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
 	}
 
 	return int(id), nil
@@ -658,17 +714,32 @@ func CreateSalesInvoice(db *sql.DB, inv SalesInvoice) (int, error) {
 
 // UpdateSalesInvoice updates an existing sales invoice and its line items.
 func UpdateSalesInvoice(db *sql.DB, inv SalesInvoice) error {
+	fy, err := InvoiceFinancialYear(inv.InvoiceDate)
+	if err != nil {
+		return err
+	}
+	var originalDate string
+	if err := db.QueryRow(`SELECT invoice_date FROM sales_invoices WHERE id = ?`, inv.ID).Scan(&originalDate); err != nil {
+		return err
+	}
+	originalFY, err := InvoiceFinancialYear(originalDate)
+	if err != nil {
+		return err
+	}
+	if fy != originalFY {
+		return fmt.Errorf("invoice date must remain within financial year %s; create a new invoice for another financial year", originalFY)
+	}
 	// Compute total from line items
 	var total float64
 	for _, item := range inv.LineItems {
 		total += item.Amount
 	}
 
-	_, err := db.Exec(`
+	_, err = db.Exec(`
 		UPDATE sales_invoices
-		SET invoice_number = ?, financial_year = ?, business_partner_id = ?, contact_id = ?, invoice_date = ?, due_in_days = ?, due_date = ?, currency = ?, amount = ?
+		SET business_partner_id = ?, contact_id = ?, invoice_date = ?, due_in_days = ?, due_date = ?, currency = ?, amount = ?
 		WHERE id = ?
-	`, inv.InvoiceNumber, inv.FinancialYear, inv.BusinessPartnerID, inv.ContactID, inv.InvoiceDate, inv.DueInDays, inv.DueDate, inv.Currency, total, inv.ID)
+	`, inv.BusinessPartnerID, inv.ContactID, inv.InvoiceDate, inv.DueInDays, inv.DueDate, inv.Currency, total, inv.ID)
 	if err != nil {
 		return err
 	}

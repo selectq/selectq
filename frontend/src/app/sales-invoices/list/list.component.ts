@@ -52,6 +52,7 @@ export class ListComponent implements OnInit {
   }
 
   onDateChange() {
+    this.formInvoice.financial_year = this.financialYear(this.formInvoice.invoice_date);
     if (this.formInvoice.invoice_date && this.formInvoice.due_in_days !== undefined) {
       const date = new Date(this.formInvoice.invoice_date);
       date.setDate(date.getDate() + this.formInvoice.due_in_days);
@@ -221,7 +222,7 @@ export class ListComponent implements OnInit {
 
   save() {
     const inv = this.formInvoice;
-    if (!inv.invoice_number || !inv.financial_year || !inv.business_partner_id ||
+    if (!inv.financial_year || !inv.business_partner_id ||
         !inv.invoice_date || !inv.currency) {
       alert('Please fill out all header fields.');
       return;
@@ -258,7 +259,7 @@ export class ListComponent implements OnInit {
           this.loadData();
         },
         error: (err) => {
-          alert('Failed to update: ' + (err.error?.message || err.message));
+          alert('Failed to update: ' + (typeof err.error === 'string' ? err.error : err.error?.message || err.message));
           this.isSaving = false;
         }
       });
@@ -270,17 +271,24 @@ export class ListComponent implements OnInit {
           this.loadData();
         },
         error: (err) => {
-          alert('Failed to create: ' + (err.error?.message || err.message));
+          alert('Failed to create: ' + (typeof err.error === 'string' ? err.error : err.error?.message || err.message));
           this.isSaving = false;
         }
       });
     }
   }
 
+  private financialYear(date: string): string {
+    if (!date) return '';
+    const [year, month] = date.split('-').map(Number);
+    const start = month < 4 ? year - 1 : year;
+    return `${start}-${start + 1}`;
+  }
+
   private emptyInvoice(): SalesInvoice {
     return {
       invoice_number: '',
-      financial_year: '2026-27',
+      financial_year: this.financialYear(new Date().toISOString().split('T')[0]),
       business_partner_id: 0,
       invoice_date: new Date().toISOString().split('T')[0],
       due_in_days: 0,
@@ -395,9 +403,16 @@ export class ListComponent implements OnInit {
       <div class="party-block" style="text-align:right">
         <h4>Bill To (Buyer)</h4>
         <div class="name">${bp?.name || inv.business_partner_name || 'N/A'}</div>
-        ${contact ? `<div class="detail" style="font-weight:600;">Attn: ${contact.name}</div>` : ''}
         ${bp?.billing_address ? `<div class="detail">${esc(bp.billing_address)}</div>` : ''}
         ${bp?.tax_information ? `<div class="tax-label">Tax Info</div><div class="tax-value">${bp.tax_information}</div>` : ''}
+        
+        ${contact ? `
+        <div style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed #e2e8f0; display: inline-block; text-align: right;">
+          <div class="detail" style="font-weight:600; color:#1e293b;">Attn: ${contact.name}</div>
+          ${contact.email ? `<div class="detail" style="font-size:11px;">✉️ ${contact.email}</div>` : ''}
+          ${contact.phone ? `<div class="detail" style="font-size:11px;">📞 ${contact.phone}</div>` : ''}
+        </div>
+        ` : ''}
       </div>
     </div>
 

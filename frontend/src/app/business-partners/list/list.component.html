@@ -64,6 +64,24 @@
         <label>Tax Information</label>
         <div class="info-value font-mono">{{ selectedPartner.tax_information || 'Not provided' }}</div>
       </div>
+
+      <!-- Display Contacts -->
+      <div class="info-group" style="margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+        <label>Contacts</label>
+        <div class="info-value" *ngIf="!selectedPartner.contacts || selectedPartner.contacts.length === 0">No contacts provided.</div>
+        <div class="contacts-list" *ngIf="selectedPartner.contacts && selectedPartner.contacts.length > 0">
+          <div *ngFor="let c of selectedPartner.contacts" class="contact-item" style="padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 8px;">
+            <div style="font-weight: 600; color: #1e293b; display: flex; align-items: center; justify-content: space-between;">
+              <span>{{ c.name }}</span>
+              <span *ngIf="c.is_primary" class="badge" style="background: #e0e7ff; color: #4f46e5; font-size: 10px;">Primary</span>
+            </div>
+            <div style="font-size: 13px; color: #475569; margin-top: 4px; display: flex; gap: 16px;">
+              <span *ngIf="c.email">📧 {{ c.email }}</span>
+              <span *ngIf="c.phone">📞 {{ c.phone }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -113,6 +131,44 @@
         <div class="form-group half">
           <label for="tax">Tax Information</label>
           <input id="tax" type="text" formControlName="tax_information" placeholder="GSTIN / VAT ID / EIN" />
+        </div>
+      </div>
+
+      <!-- Contacts Section inline form -->
+      <div class="contacts-section" style="margin-top: 8px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+        <div class="contacts-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="margin: 0; font-size: 1.1rem; color: #1e293b;">Contacts</h3>
+          <button type="button" class="btn-secondary" style="padding: 4px 10px; font-size: 12px;" (click)="addContact()">+ Add</button>
+        </div>
+
+        <div formArrayName="contacts">
+          <div *ngFor="let contact of contacts.controls; let i=index" [formGroupName]="i" class="contact-card" style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 12px; position: relative; background: #fafbfc;">
+            
+            <button type="button" *ngIf="contacts.length > 1" (click)="removeContact(i)" style="position: absolute; top: 8px; right: 8px; background: none; border: none; color: #ef4444; cursor: pointer; font-size: 18px; line-height: 1;" title="Remove Contact">&times;</button>
+
+            <div class="form-group" style="margin-bottom: 10px;">
+              <label style="font-size: 12px;">Name *</label>
+              <input type="text" formControlName="name" placeholder="John Doe" style="padding: 6px 10px; font-size: 13px;" />
+            </div>
+
+            <div class="form-row" style="margin-bottom: 10px;">
+              <div class="form-group half">
+                <label style="font-size: 12px;">Email</label>
+                <input type="email" formControlName="email" placeholder="john@example.com" style="padding: 6px 10px; font-size: 13px;" />
+              </div>
+              <div class="form-group half">
+                <label style="font-size: 12px;">Phone</label>
+                <input type="text" formControlName="phone" placeholder="+1 234 567" style="padding: 6px 10px; font-size: 13px;" />
+              </div>
+            </div>
+            
+            <div class="form-row">
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; margin: 0;">
+                <input type="radio" name="primaryContact" [checked]="contact.get('is_primary')?.value" (change)="setPrimary(i)" style="width: auto; margin: 0;" />
+                <span style="font-size: 12px; font-weight: 500; color: #334155;">Set as Primary Contact</span>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
 
