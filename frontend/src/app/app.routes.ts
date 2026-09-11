@@ -9,6 +9,8 @@ import { SettingsComponent } from './settings/settings.component';
 
 import { DBBrowserComponent } from './db-browser/db-browser.component';
 
+import { ReferenceRatesComponent } from './reference-rates/reference-rates.component';
+
 export const routes: Routes = [
   { path: '', redirectTo: 'upload', pathMatch: 'full' },
   { path: 'upload', component: UploadComponent },
@@ -17,5 +19,6 @@ export const routes: Routes = [
   { path: 'business-partners', component: ListComponent },
   { path: 'sales-invoices', component: SalesInvoicesList },
   { path: 'db-browser', component: DBBrowserComponent },
+  { path: 'reference-rates', component: ReferenceRatesComponent },
   { path: 'settings', component: SettingsComponent }
 ];

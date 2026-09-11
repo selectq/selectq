@@ -51,6 +51,11 @@ func main() {
 
 	api.HandleFunc("/upload", srv.UploadStatement).Methods("POST")
 
+	api.HandleFunc("/reference-rates", srv.GetReferenceRates).Methods("GET")
+	api.HandleFunc("/reference-rates", srv.SaveReferenceRate).Methods("POST")
+	api.HandleFunc("/reference-rates/import", srv.UploadReferenceRates).Methods("POST")
+	api.HandleFunc("/reference-rates/{date}/{currency}", srv.SaveReferenceRate).Methods("PUT")
+
 	api.HandleFunc("/db-browser/objects", srv.BrowserObjects).Methods("GET")
 	api.HandleFunc("/db-browser/detail", srv.BrowserDetail).Methods("GET")
 	api.HandleFunc("/db-browser/rows", srv.BrowserRows).Methods("GET")

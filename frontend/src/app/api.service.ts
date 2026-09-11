@@ -120,6 +120,17 @@ export interface DBResult { columns: string[]; rows: unknown[][]; truncated: boo
 export interface DBObject { type: string; name: string; table_name: string; sql: string; }
 export interface DBObjectDetail { object: DBObject; sections: Record<string, DBResult>; }
 
+export interface ReferenceRate {
+  rate_date: string;
+  currency: string;
+  units: number;
+  rate_inr: number;
+  source_file?: string;
+  source_sheet?: string;
+  imported_at?: string;
+}
+export interface ReferenceRateImport { empty_skipped: number; sheet: string; inserted: number; skipped: number; from_date: string; to_date: string; }
+
 @Injectable({
   providedIn: 'root'
 })
@@ -133,6 +144,22 @@ export class ApiService {
   getDBRows(name: string, offset: number, limit = 100): Observable<DBResult> { return this.http.get<DBResult>(`${this.baseUrl}/db-browser/rows`, { params: { name, offset, limit } }); }
   getDBSettings(): Observable<Record<string, DBResult>> { return this.http.get<Record<string, DBResult>>(`${this.baseUrl}/db-browser/settings`); }
   executeSQL(sql: string, mode: string): Observable<DBResult> { return this.http.post<DBResult>(`${this.baseUrl}/db-browser/sql`, { sql, mode }); }
+
+  getReferenceRates(): Observable<ReferenceRate[]> {
+    return this.http.get<ReferenceRate[]>(`${this.baseUrl}/reference-rates`);
+  }
+  createReferenceRate(rate: ReferenceRate): Observable<ReferenceRate> {
+    return this.http.post<ReferenceRate>(`${this.baseUrl}/reference-rates`, rate);
+  }
+  updateReferenceRate(original: ReferenceRate, rate: ReferenceRate): Observable<ReferenceRate> {
+    return this.http.put<ReferenceRate>(`${this.baseUrl}/reference-rates/${encodeURIComponent(original.rate_date)}/${encodeURIComponent(original.currency)}`, rate);
+  }
+  uploadReferenceRates(file: File, sheet: string): Observable<ReferenceRateImport> {
+    const data = new FormData();
+    data.append('file', file);
+    if (sheet.trim()) data.append('sheet', sheet.trim());
+    return this.http.post<ReferenceRateImport>(`${this.baseUrl}/reference-rates/import`, data);
+  }
 
   uploadStatement(file: File): Observable<any> {
     const formData = new FormData();
