@@ -9,8 +9,8 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/selectq/selectq/core"
 	"github.com/gorilla/mux"
+	"github.com/selectq/selectq/core"
 )
 
 type Server struct {
@@ -49,10 +49,11 @@ func (s *Server) GetTransactions(w http.ResponseWriter, r *http.Request) {
 
 // TransactionUpdatePayload defines what fields can be updated
 type TransactionUpdatePayload struct {
-	AccountHead       string `json:"account_head"`
-	SubAccountHead    string `json:"sub_account_head"`
-	InvoiceNumber     string `json:"invoice_number"`
-	BusinessPartnerID *int   `json:"business_partner_id"`
+	Allocations       []core.InvoiceAllocation `json:"allocations"`
+	AccountHead       string                   `json:"account_head"`
+	SubAccountHead    string                   `json:"sub_account_head"`
+	InvoiceNumber     string                   `json:"invoice_number"`
+	BusinessPartnerID *int                     `json:"business_partner_id"`
 }
 
 func (s *Server) UpdateTransaction(w http.ResponseWriter, r *http.Request) {
@@ -70,8 +71,8 @@ func (s *Server) UpdateTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := core.UpdateTransactionClassification(s.DB, id, payload.AccountHead, payload.SubAccountHead, payload.InvoiceNumber, payload.BusinessPartnerID); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := core.AllocateTransaction(s.DB, id, payload.AccountHead, payload.SubAccountHead, payload.InvoiceNumber, payload.BusinessPartnerID, payload.Allocations); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -103,7 +104,11 @@ func (s *Server) CreateBusinessPartner(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p.ID = int(id)
+	p, err = core.GetBusinessPartnerByID(s.DB, int(id))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(p)
 }
@@ -141,10 +146,15 @@ func (s *Server) UpdateBusinessPartner(w http.ResponseWriter, r *http.Request) {
 	}
 	p.ID = id
 	if err := core.UpdateBusinessPartner(s.DB, p); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	saved, err := core.GetBusinessPartnerByID(s.DB, p.ID)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(p)
+	json.NewEncoder(w).Encode(saved)
 }
 
 func (s *Server) DeleteBusinessPartner(w http.ResponseWriter, r *http.Request) {
@@ -279,7 +289,7 @@ func (s *Server) CreateSalesInvoice(w http.ResponseWriter, r *http.Request) {
 
 	id, err := core.CreateSalesInvoice(s.DB, inv)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -320,7 +330,7 @@ func (s *Server) UpdateSalesInvoice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := core.UpdateSalesInvoice(s.DB, inv); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 

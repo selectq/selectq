@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ApiService, BankTransaction, BusinessPartner } from '../api.service';
+import { ApiService, BankTransaction, BusinessPartner, SalesInvoice, InvoiceAllocation } from '../api.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AgGridAngular } from 'ag-grid-angular';
 import { ColDef, CellValueChangedEvent, ValueSetterParams, ValueFormatterParams } from 'ag-grid-community';
@@ -15,6 +15,38 @@ import { ColDef, CellValueChangedEvent, ValueSetterParams, ValueFormatterParams 
 })
 export class TransactionsComponent implements OnInit {
   transactions: BankTransaction[] = [];
+  invoices: SalesInvoice[] = [];
+  selected: BankTransaction | null = null;
+  allocations: InvoiceAllocation[] = [];
+  saving = false;
+  allocationError = '';
+
+  openAllocation(txn: BankTransaction) {
+    this.selected = { ...txn };
+    this.allocations = (txn.allocations || []).map(a => ({ ...a }));
+    this.allocationError = '';
+    this.api.getSalesInvoices().subscribe({ next: data => this.invoices = data || [], error: err => this.allocationError = err.error || err.message });
+  }
+  get availableInvoices() {
+    return this.invoices.filter(i => i.business_partner_id === this.selected?.business_partner_id &&
+      ((!i.is_closed && !i.is_settled) || this.allocations.some(a => a.sales_invoice_id === i.id)));
+  }
+  allocationFor(id: number) { return this.allocations.find(a => a.sales_invoice_id === id); }
+  setAllocation(id: number, value: number) {
+    this.allocations = this.allocations.filter(a => a.sales_invoice_id !== id);
+    if (value > 0) this.allocations.push({ sales_invoice_id: id, amount: value });
+  }
+  get receiptAmount() { return this.selected?.forex_amount || this.selected?.deposit_amt || 0; }
+  get allocatedTotal() { return this.allocations.reduce((sum, a) => sum + a.amount, 0); }
+  saveAllocations() {
+    if (!this.selected) return;
+    this.saving = true;
+    this.api.updateTransaction(this.selected.id, { ...this.selected, account_head: 'Sales Invoice', allocations: this.allocations }).subscribe({
+      next: () => { this.saving = false; this.selected = null; this.fetchTransactions(this.importId!); },
+      error: err => { this.saving = false; this.allocationError = err.error || err.message; }
+    });
+  }
+
   businessPartners: BusinessPartner[] = [];
   isLoading = true;
   importId: number | null = null;
@@ -25,7 +57,7 @@ export class TransactionsComponent implements OnInit {
     { field: 'narration', headerName: 'Narration', flex: 2, sortable: true, filter: true, wrapText: true, autoHeight: true },
     { field: 'withdrawal_amt', headerName: 'Withdrawal', width: 130, sortable: true, valueFormatter: this.currencyFormatter },
     { field: 'deposit_amt', headerName: 'Deposit', width: 130, sortable: true, valueFormatter: this.currencyFormatter },
-    { field: 'invoice_number', headerName: 'Invoice Number', editable: true, flex: 1, sortable: true, filter: true },
+    { field: 'invoice_number', headerName: 'Invoices (click to allocate)', onCellClicked: params => this.openAllocation(params.data), editable: false, flex: 1, sortable: true, filter: true },
     { field: 'account_head', headerName: 'Account Head', editable: true, flex: 1, sortable: true, filter: true },
     { field: 'sub_account_head', headerName: 'Sub Account', editable: true, flex: 1, sortable: true, filter: true },
     { 
@@ -118,7 +150,7 @@ export class TransactionsComponent implements OnInit {
       },
       error: (err) => {
         alert('Failed to save changes: ' + err.message);
-        // Revert value? For now just alert.
+        this.fetchTransactions(this.importId!);
       }
     });
   }

@@ -55,6 +55,7 @@
       <p class="form-subtitle">{{ isEditMode ? 'Update the details for this invoice.' : 'Fill in the header and add line items.' }}</p>
     </div>
 
+    <label *ngIf="isEditMode"><input type="checkbox" [(ngModel)]="formInvoice.is_closed" /> Closed: prevent new bank transaction links</label>
     <!-- Invoice Header Fields -->
     <div class="form-body form-grid">
       <div class="form-group">
@@ -72,6 +73,15 @@
         <select class="form-control" [(ngModel)]="formInvoice.business_partner_id" (ngModelChange)="onBusinessPartnerChange()">
           <option [ngValue]="0" disabled>Select Partner</option>
           <option *ngFor="let bp of businessPartners" [ngValue]="bp.id">{{ bp.name }}</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="invoice-address">Billing address</label>
+        <select id="invoice-address" class="form-control" [(ngModel)]="formInvoice.address_id">
+          <option [ngValue]="null">{{ selectedBPAddresses.length ? 'Select active address' : 'No address configured' }}</option>
+          <option *ngFor="let address of activeAddresses" [ngValue]="address.id">#{{ address.id }} - {{ address.address }}</option>
+          <option *ngIf="retainedArchivedAddress as address" [ngValue]="address.id">#{{ address.id }} (archived, retained on this invoice) - {{ address.address }}</option>
         </select>
       </div>
 

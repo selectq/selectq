@@ -7,6 +7,8 @@ import { ListComponent } from './business-partners/list/list.component';
 import { ListComponent as SalesInvoicesList } from './sales-invoices/list/list.component';
 import { SettingsComponent } from './settings/settings.component';
 
+import { DBBrowserComponent } from './db-browser/db-browser.component';
+
 export const routes: Routes = [
   { path: '', redirectTo: 'upload', pathMatch: 'full' },
   { path: 'upload', component: UploadComponent },
@@ -14,5 +16,6 @@ export const routes: Routes = [
   { path: 'history/:id', component: TransactionsComponent },
   { path: 'business-partners', component: ListComponent },
   { path: 'sales-invoices', component: SalesInvoicesList },
+  { path: 'db-browser', component: DBBrowserComponent },
   { path: 'settings', component: SettingsComponent }
 ];

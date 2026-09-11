@@ -11,7 +11,10 @@ export interface ImportRecord {
   imported_at: string;
 }
 
+export interface InvoiceAllocation { sales_invoice_id: number; amount: number; }
+
 export interface BankTransaction {
+  allocations?: InvoiceAllocation[];
   id: number;
   date: string;
   narration: string;
@@ -39,7 +42,18 @@ export interface BusinessPartnerContact {
   is_primary: boolean;
 }
 
+export interface BPAddress {
+  id?: number;
+  business_partner_id?: number;
+  address: string;
+  previous_address_id?: number | null;
+  is_archived: boolean;
+  created_at?: string;
+  was_archived?: boolean;
+}
+
 export interface BusinessPartner {
+  addresses?: BPAddress[];
   id?: number;
   name: string;
   billing_address: string;
@@ -60,6 +74,13 @@ export interface InvoiceLineItem {
 }
 
 export interface SalesInvoice {
+  address_id?: number | null;
+  billing_address?: string;
+  is_closed?: boolean;
+  expected_receipt?: number;
+  received_amount?: number;
+  outstanding_amount?: number;
+  is_settled?: boolean;
   id?: number;
   invoice_number: string;
   financial_year: string;
@@ -84,6 +105,10 @@ export interface CompanyProfile {
   phone: string;
 }
 
+export interface DBResult { columns: string[]; rows: unknown[][]; truncated: boolean; changes: number; }
+export interface DBObject { type: string; name: string; table_name: string; sql: string; }
+export interface DBObjectDetail { object: DBObject; sections: Record<string, DBResult>; }
+
 @Injectable({
   providedIn: 'root'
 })
@@ -91,6 +116,12 @@ export class ApiService {
   private baseUrl = '/api';
 
   constructor(private http: HttpClient) {}
+
+  getDBObjects(): Observable<DBObject[]> { return this.http.get<DBObject[]>(`${this.baseUrl}/db-browser/objects`); }
+  getDBDetail(name: string): Observable<DBObjectDetail> { return this.http.get<DBObjectDetail>(`${this.baseUrl}/db-browser/detail`, { params: { name } }); }
+  getDBRows(name: string, offset: number, limit = 100): Observable<DBResult> { return this.http.get<DBResult>(`${this.baseUrl}/db-browser/rows`, { params: { name, offset, limit } }); }
+  getDBSettings(): Observable<Record<string, DBResult>> { return this.http.get<Record<string, DBResult>>(`${this.baseUrl}/db-browser/settings`); }
+  executeSQL(sql: string, mode: string): Observable<DBResult> { return this.http.post<DBResult>(`${this.baseUrl}/db-browser/sql`, { sql, mode }); }
 
   uploadStatement(file: File): Observable<any> {
     const formData = new FormData();

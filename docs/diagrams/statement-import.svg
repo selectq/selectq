@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="820" viewBox="0 0 1200 820" role="img" aria-labelledby="title desc">
+<title id="title">03 / Trace a receipt to its bank statement</title><desc id="desc">Bank account and import provenance for transactions later allocated to invoices. Relationships show cardinality at each end. PK means primary key; FK means foreign key; UQ means unique.</desc>
+<style>text{font-family:Segoe UI,Arial,sans-serif;fill:#172b4d} .title{font-size:28px;font-weight:700} .sub{font-size:15px;fill:#52657c} .entity{font-size:19px;font-weight:600;fill:white} .field{font-family:Consolas,monospace;font-size:15px} .label{font-size:14px;fill:#254e70;paint-order:stroke;stroke:#f4f7fb;stroke-width:6px;stroke-linejoin:round} .note{font-size:15px;fill:#354a62}</style>
+<rect width="1200" height="820" fill="#f4f7fb"/>
+<text x="40" y="48" class="title">03 / Trace a receipt to its bank statement</text><text x="40" y="78" class="sub">Bank account and import provenance for transactions later allocated to invoices.</text>
+<path d="M400 190 H800" fill="none" stroke="#66849d" stroke-width="2"/>
+<text x="425" y="179" text-anchor="middle" class="label">1</text>
+<text x="775" y="179" text-anchor="middle" class="label">0..*</text>
+<text x="600" y="179" text-anchor="middle" class="label">has statement imports</text>
+<path d="M225 265 V385 H450 V460" fill="none" stroke="#66849d" stroke-width="2"/>
+<text x="240" y="290" text-anchor="middle" class="label">1</text>
+<text x="475" y="446" text-anchor="middle" class="label">0..*</text>
+<text x="253" y="374" text-anchor="middle" class="label">has transactions</text>
+<path d="M975 319 V385 H750 V460" fill="none" stroke="#66849d" stroke-width="2"/>
+<text x="990" y="344" text-anchor="middle" class="label">1</text>
+<text x="775" y="446" text-anchor="middle" class="label">0..*</text>
+<text x="949" y="374" text-anchor="middle" class="label">contains rows</text>
+<rect x="50" y="130" width="350" height="135" rx="10" fill="white" stroke="#c6d4e1"/>
+<path d="M60 130 H390 Q400 130 400 140 V172 H50 V140 Q50 130 60 130" fill="#215b88"/>
+<text x="66" y="158" class="entity">accounts</text>
+<text x="66" y="198" class="field">PK account_no</text>
+<text x="66" y="225" class="field">customer_id</text>
+<text x="66" y="252" class="field">branch / ifsc / micr</text>
+<rect x="800" y="130" width="350" height="189" rx="10" fill="white" stroke="#c6d4e1"/>
+<path d="M810 130 H1140 Q1150 130 1150 140 V172 H800 V140 Q800 130 810 130" fill="#215b88"/>
+<text x="816" y="158" class="entity">imports</text>
+<text x="816" y="198" class="field">PK id</text>
+<text x="816" y="225" class="field">FK account_no</text>
+<text x="816" y="252" class="field">source_file</text>
+<text x="816" y="279" class="field">statement_from / statement_to</text>
+<text x="816" y="306" class="field">imported_at</text>
+<rect x="390" y="460" width="420" height="216" rx="10" fill="white" stroke="#c6d4e1"/>
+<path d="M400 460 H800 Q810 460 810 470 V502 H390 V470 Q390 460 400 460" fill="#087e83"/>
+<text x="406" y="488" class="entity">bank_transactions</text>
+<text x="406" y="528" class="field">PK id</text>
+<text x="406" y="555" class="field">FK import_id</text>
+<text x="406" y="582" class="field">FK account_no</text>
+<text x="406" y="609" class="field">txn_date / narration</text>
+<text x="406" y="636" class="field">deposit_amt / withdrawal_amt</text>
+<text x="406" y="663" class="field">closing_balance</text>
+<text x="50" y="728" class="note">Each transaction references one import and one account; the import also references one account.</text>
+<text x="50" y="755" class="note">The importer writes matching account numbers. The schema has no composite FK enforcing that match.</text>
+<text x="40" y="796" class="sub">PK primary key · FK foreign key · UQ unique · 1 exactly one · 0..1 optional · 0..* zero or many</text></svg>

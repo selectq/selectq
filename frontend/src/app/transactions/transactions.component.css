@@ -67,3 +67,12 @@ h2 {
   color: var(--text-secondary);
   margin-top: 0.25rem;
 }
+
+.allocation-panel { margin-top: 1.5rem; overflow-x: auto; }
+.allocation-panel p { margin: 1rem 0; }
+.allocation-panel table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+.allocation-panel th, .allocation-panel td { padding: .6rem; text-align: left; border-bottom: 1px solid var(--surface-border); }
+.allocation-panel input, .allocation-panel select { padding: .5rem; border-radius: 6px; border: 1px solid var(--surface-border); }
+.allocation-panel input { width: 120px; }
+.allocation-panel button { padding: .6rem 1rem; margin-right: .5rem; cursor: pointer; }
+.allocation-panel [role="alert"] { color: #ef4444; }

@@ -1,13 +1,14 @@
+import { PartnerAddressesComponent } from '../addresses/addresses.component';
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormArray } from '@angular/forms';
-import { ApiService, BusinessPartner } from '../../api.service';
+import { ApiService, BusinessPartner, BPAddress } from '../../api.service';
 import { debounceTime, distinctUntilChanged, Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-list',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, PartnerAddressesComponent],
   templateUrl: './list.component.html',
   styleUrls: ['./list.component.css']
 })
@@ -34,9 +35,10 @@ export class ListComponent implements OnInit, OnDestroy {
     this.bpForm = this.fb.group({
       name: ['', Validators.required],
       billing_address: [''],
+      addresses: [[], (c: {value: BPAddress[]}) => (c.value || []).every(a => a.address.trim()) ? null : { blankAddress: true }],
       invoice_currency: ['USD', Validators.required],
       tax_information: [''],
-      contacts: this.fb.array([this.createContactGroup(true)])
+      contacts: this.fb.array([])
     });
   }
 
@@ -54,14 +56,11 @@ export class ListComponent implements OnInit, OnDestroy {
   }
 
   addContact() {
-    this.contacts.push(this.createContactGroup());
+    this.contacts.push(this.createContactGroup(this.contacts.length === 0));
   }
 
   removeContact(index: number) {
     this.contacts.removeAt(index);
-    if (this.contacts.length === 0) {
-      this.addContact(); // Ensure at least one
-    }
     this.ensurePrimary();
   }
 
@@ -137,9 +136,8 @@ export class ListComponent implements OnInit, OnDestroy {
     this.isEditMode = false;
     this.editingPartnerId = null;
     this.similarPartners = [];
-    this.bpForm.reset({ name: '', billing_address: '', invoice_currency: 'USD', tax_information: '' });
+    this.bpForm.reset({ name: '', billing_address: '', invoice_currency: 'USD', tax_information: '', addresses: [] });
     this.contacts.clear();
-    this.contacts.push(this.createContactGroup(true));
   }
 
   editPartner() {
@@ -151,6 +149,7 @@ export class ListComponent implements OnInit, OnDestroy {
     this.bpForm.patchValue({
       name: this.selectedPartner.name,
       billing_address: this.selectedPartner.billing_address,
+      addresses: (this.selectedPartner.addresses || []).map(a => ({...a, was_archived: a.is_archived})),
       invoice_currency: this.selectedPartner.invoice_currency,
       tax_information: this.selectedPartner.tax_information
     });
@@ -159,14 +158,13 @@ export class ListComponent implements OnInit, OnDestroy {
     if (this.selectedPartner.contacts && this.selectedPartner.contacts.length > 0) {
       this.selectedPartner.contacts.forEach(c => {
         this.contacts.push(this.fb.group({
-          name: [c.name, Validators.required],
+          id: [c.id],
+                  name: [c.name, Validators.required],
           email: [c.email],
           phone: [c.phone],
           is_primary: [c.is_primary]
         }));
       });
-    } else {
-      this.contacts.push(this.createContactGroup(true));
     }
   }
 
@@ -191,7 +189,7 @@ export class ListComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           console.error('Failed to update partner', err);
-          alert('Failed to update. Duplicate name?');
+          alert(typeof err.error === 'string' ? err.error : 'Failed to update partner.');
           this.isSubmitting = false;
         }
       });
@@ -206,7 +204,7 @@ export class ListComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           console.error('Failed to create partner', err);
-          alert('Failed to save. Duplicate name?');
+          alert(typeof err.error === 'string' ? err.error : 'Failed to save partner.');
           this.isSubmitting = false;
         }
       });

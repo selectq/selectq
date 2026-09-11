@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-labelledby="title desc">
+<title id="title">01 / Create an invoice for a business partner</title><desc id="desc">Invoice ownership, optional contact and item-level GST. Selected columns shown. Relationships show cardinality at each end. PK means primary key; FK means foreign key; UQ means unique.</desc>
+<style>text{font-family:Segoe UI,Arial,sans-serif;fill:#172b4d} .title{font-size:28px;font-weight:700} .sub{font-size:15px;fill:#52657c} .entity{font-size:19px;font-weight:600;fill:white} .field{font-family:Consolas,monospace;font-size:15px} .label{font-size:14px;fill:#254e70;paint-order:stroke;stroke:#f4f7fb;stroke-width:6px;stroke-linejoin:round} .note{font-size:15px;fill:#354a62}</style>
+<rect width="1200" height="900" fill="#f4f7fb"/>
+<text x="40" y="48" class="title">01 / Create an invoice for a business partner</text><text x="40" y="78" class="sub">Invoice ownership, optional contact and item-level GST. Selected columns shown.</text>
+<path d="M400 205 H800" fill="none" stroke="#66849d" stroke-width="2"/>
+<text x="425" y="194" text-anchor="middle" class="label">1</text>
+<text x="775" y="194" text-anchor="middle" class="label">0..*</text>
+<text x="600" y="194" text-anchor="middle" class="label">has contacts</text>
+<path d="M225 292 V450" fill="none" stroke="#66849d" stroke-width="2"/>
+<text x="240" y="319" text-anchor="middle" class="label">1</text>
+<text x="245" y="429" text-anchor="middle" class="label">0..*</text>
+<text x="310" y="375" text-anchor="middle" class="label">owns invoices</text>
+<path d="M975 292 V375 H600 V505 H440" fill="none" stroke="#66849d" stroke-width="2"/>
+<text x="992" y="320" text-anchor="middle" class="label">0..1</text>
+<text x="469" y="494" text-anchor="middle" class="label">0..*</text>
+<text x="720" y="364" text-anchor="middle" class="label">optional invoice contact</text>
+<path d="M440 610 H800" fill="none" stroke="#66849d" stroke-width="2"/>
+<text x="466" y="599" text-anchor="middle" class="label">1</text>
+<text x="772" y="599" text-anchor="middle" class="label">0..*</text>
+<text x="620" y="599" text-anchor="middle" class="label">contains</text>
+<rect x="50" y="130" width="350" height="162" rx="10" fill="white" stroke="#c6d4e1"/>
+<path d="M60 130 H390 Q400 130 400 140 V172 H50 V140 Q50 130 60 130" fill="#215b88"/>
+<text x="66" y="158" class="entity">business_partners</text>
+<text x="66" y="198" class="field">PK id</text>
+<text x="66" y="225" class="field">UQ name</text>
+<text x="66" y="252" class="field">invoice_currency</text>
+<text x="66" y="279" class="field">billing_address</text>
+<rect x="800" y="130" width="350" height="162" rx="10" fill="white" stroke="#c6d4e1"/>
+<path d="M810 130 H1140 Q1150 130 1150 140 V172 H800 V140 Q800 130 810 130" fill="#215b88"/>
+<text x="816" y="158" class="entity">business_partner_contacts</text>
+<text x="816" y="198" class="field">PK id</text>
+<text x="816" y="225" class="field">FK business_partner_id</text>
+<text x="816" y="252" class="field">name / email / phone</text>
+<text x="816" y="279" class="field">is_primary</text>
+<rect x="50" y="450" width="390" height="243" rx="10" fill="white" stroke="#c6d4e1"/>
+<path d="M60 450 H430 Q440 450 440 460 V492 H50 V460 Q50 450 60 450" fill="#087e83"/>
+<text x="66" y="478" class="entity">sales_invoices</text>
+<text x="66" y="518" class="field">PK id</text>
+<text x="66" y="545" class="field">UQ invoice_number</text>
+<text x="66" y="572" class="field">FK business_partner_id</text>
+<text x="66" y="599" class="field">FK contact_id (nullable)</text>
+<text x="66" y="626" class="field">financial_year / invoice_date</text>
+<text x="66" y="653" class="field">currency / amount (before GST)</text>
+<text x="66" y="680" class="field">is_closed</text>
+<rect x="800" y="450" width="350" height="189" rx="10" fill="white" stroke="#c6d4e1"/>
+<path d="M810 450 H1140 Q1150 450 1150 460 V492 H800 V460 Q800 450 810 450" fill="#087e83"/>
+<text x="816" y="478" class="entity">sales_invoice_line_items</text>
+<text x="816" y="518" class="field">PK id</text>
+<text x="816" y="545" class="field">FK sales_invoice_id</text>
+<text x="816" y="572" class="field">description / hsn_sac_code</text>
+<text x="816" y="599" class="field">quantity / rate</text>
+<text x="816" y="626" class="field">gst_percent / amount</text>
+<text x="50" y="770" class="note">Each invoice has one partner; a contact may be omitted. Each line item belongs to one invoice.</text>
+<text x="50" y="797" class="note">amount on an invoice is the sum of stored line-item amounts before GST.</text>
+<text x="50" y="824" class="note">Numbering uses invoice_sequences; seller details use company_profile. Neither has an invoice foreign key.</text>
+<text x="40" y="876" class="sub">PK primary key · FK foreign key · UQ unique · 1 exactly one · 0..1 optional · 0..* zero or many</text></svg>

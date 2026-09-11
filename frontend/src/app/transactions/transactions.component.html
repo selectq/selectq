@@ -6,7 +6,7 @@
     </div>
   </div>
   
-  <p class="subtitle">Detailed view of classified transactions for Statement #{{ importId }}</p>
+  <p class="subtitle">Detailed view of classified transactions for Statement #{{ importId }}. Click an invoice cell to allocate a receipt.</p>
 
   <div class="loading" *ngIf="isLoading">
     Loading transactions...
@@ -26,3 +26,29 @@
     </ag-grid-angular>
   </div>
 </div>
+
+<section class="glass-card allocation-panel" *ngIf="selected as txn">
+  <h3>Allocate receipt to invoices</h3>
+  <p>{{ txn.narration }} / Deposit: {{ txn.deposit_amt | number:'1.2-2' }} INR
+    <span *ngIf="txn.forex_amount"> / {{ txn.forex_amount | number:'1.2-2' }} {{ txn.currency }}</span></p>
+  <label>Business partner
+    <select [(ngModel)]="txn.business_partner_id" (ngModelChange)="allocations = []" [disabled]="saving">
+      <option [ngValue]="undefined">Select partner</option>
+      <option *ngFor="let bp of businessPartners" [ngValue]="bp.id">{{ bp.name }}</option>
+    </select>
+  </label>
+  <p>Enter amounts in the invoice currency. Partial payments leave the remaining balance open. INR expected receipts exclude GST and deduct 10% TDS.</p>
+  <table>
+    <thead><tr><th>Invoice</th><th>Currency</th><th>Expected</th><th>Received</th><th>Outstanding</th><th>This receipt</th></tr></thead>
+    <tbody><tr *ngFor="let inv of availableInvoices">
+      <td>{{ inv.invoice_number }} {{ inv.is_closed ? '(closed)' : '' }}</td><td>{{ inv.currency }}</td>
+      <td>{{ inv.expected_receipt | number:'1.2-2' }}</td><td>{{ inv.received_amount | number:'1.2-2' }}</td><td>{{ inv.outstanding_amount | number:'1.2-2' }}</td>
+      <td><input type="number" min="0" step="0.01" [attr.aria-label]="'Allocate to ' + inv.invoice_number" [ngModel]="allocationFor(inv.id!)?.amount || 0" (ngModelChange)="setAllocation(inv.id!, $event)" [disabled]="saving || !!inv.is_closed" /></td>
+    </tr></tbody>
+  </table>
+  <p *ngIf="!availableInvoices.length">No open invoices for this partner.</p>
+  <p>Allocated: {{ allocatedTotal | number:'1.2-2' }} / Unallocated: {{ receiptAmount - allocatedTotal | number:'1.2-2' }}</p>
+  <p role="alert" *ngIf="allocationError">{{ allocationError }}</p>
+  <button (click)="saveAllocations()" [disabled]="saving || !txn.business_partner_id">Save allocations</button>
+  <button (click)="selected = null" [disabled]="saving">Cancel</button>
+</section>

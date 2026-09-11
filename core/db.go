@@ -37,13 +37,20 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		db.Close()
 		return nil, fmt.Errorf("repair invoice numbers: %w", err)
 	}
+	if err := initAllocations(db); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if err := initBPAddresses(db); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return db, nil
 }
 
 // StoreInDB saves parsed metadata and transactions to the database.
 // It returns the number of transactions successfully inserted.
 func StoreInDB(db *sql.DB, meta AccountMeta, transactions []BankTransaction, sourceFile string) (int, error) {
-
 
 	// Insert into a transaction for atomicity
 	tx, err := db.Begin()
@@ -240,13 +247,13 @@ func createTables(db *sql.DB) error {
 	INSERT OR IGNORE INTO company_profile (id) VALUES (1);
 	`
 	_, err := db.Exec(schema)
-	
+
 	// Add columns safely (sqlite ALTER TABLE ADD COLUMN does not support IF NOT EXISTS natively, but errors can be ignored safely if table already has them).
 	db.Exec("ALTER TABLE bank_transactions ADD COLUMN business_partner_id INTEGER REFERENCES business_partners(id);")
 	db.Exec("ALTER TABLE sales_invoices ADD COLUMN contact_id INTEGER REFERENCES business_partner_contacts(id);")
 	db.Exec("ALTER TABLE sales_invoices ADD COLUMN due_in_days INTEGER DEFAULT 0;")
 	db.Exec("ALTER TABLE sales_invoices ADD COLUMN due_date TEXT DEFAULT '';")
-	
+
 	return err
 }
 
@@ -292,42 +299,38 @@ func GetTransactions(db *sql.DB, importID int) ([]BankTransaction, error) {
 		var t BankTransaction
 		var bpID sql.NullInt64
 		var bpName sql.NullString
-		
+
 		if err := rows.Scan(
 			&t.ID, &t.Date, &t.Narration, &t.ChqRefNo, &t.ValueDate, &t.WithdrawalAmt, &t.DepositAmt, &t.ClosingBalance,
 			&t.AccountHead, &t.SubAccountHead, &t.InvoiceNumber, &bpID, &bpName, &t.Currency, &t.ExchangeRate, &t.ForexAmount,
 		); err != nil {
 			return nil, err
 		}
-		
+
 		if bpID.Valid {
 			id := int(bpID.Int64)
 			t.BusinessPartnerID = &id
 			t.BusinessPartnerName = bpName.String
 		}
-		
+
 		txns = append(txns, t)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	for i := range txns {
+		txns[i].Allocations, err = GetInvoiceAllocations(db, txns[i].ID)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return txns, nil
 }
 
 // UpdateTransactionClassification saves edits to a transaction's classification.
 func UpdateTransactionClassification(db *sql.DB, txnID int, accountHead, subAccountHead, invoiceNumber string, bpID *int) error {
-	var err error
-	if bpID != nil {
-		_, err = db.Exec(`
-			UPDATE bank_transactions
-			SET account_head = ?, sub_account_head = ?, invoice_number = ?, business_partner_id = ?
-			WHERE id = ?
-		`, accountHead, subAccountHead, invoiceNumber, *bpID, txnID)
-	} else {
-		_, err = db.Exec(`
-			UPDATE bank_transactions
-			SET account_head = ?, sub_account_head = ?, invoice_number = ?, business_partner_id = NULL
-			WHERE id = ?
-		`, accountHead, subAccountHead, invoiceNumber, txnID)
-	}
-	return err
+	return AllocateTransaction(db, txnID, accountHead, subAccountHead, invoiceNumber, bpID, nil)
 }
 
 // CreateBusinessPartner inserts a new business partner.
@@ -354,6 +357,9 @@ func CreateBusinessPartner(db *sql.DB, p BusinessPartner) (int64, error) {
 		return 0, fmt.Errorf("saving contacts: %w", err)
 	}
 
+	if err := saveBPAddresses(tx, int(id), p.Addresses, p.BillingAddress); err != nil {
+		return 0, err
+	}
 	return id, tx.Commit()
 }
 
@@ -378,22 +384,55 @@ func UpdateBusinessPartner(db *sql.DB, p BusinessPartner) error {
 		return fmt.Errorf("saving contacts: %w", err)
 	}
 
+	if err := saveBPAddresses(tx, p.ID, p.Addresses, p.BillingAddress); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 
 func saveBusinessPartnerContacts(tx *sql.Tx, bpID int, contacts []BusinessPartnerContact) error {
-	// Simple approach: delete existing contacts, re-insert them.
-	// (SQLite enforces ON DELETE CASCADE if enabled, but we do it manually to be safe if PRAGMA was skipped).
-	_, err := tx.Exec(`DELETE FROM business_partner_contacts WHERE business_partner_id = ?`, bpID)
+	// Keep existing IDs stable so editing addresses does not break invoice contacts.
+	rows, err := tx.Query(`SELECT id FROM business_partner_contacts WHERE business_partner_id=?`, bpID)
 	if err != nil {
 		return err
 	}
-
+	existing := map[int]bool{}
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return err
+		}
+		existing[id] = true
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return err
+	}
+	retained := map[int]bool{}
 	for _, c := range contacts {
-		_, err := tx.Exec(`
-			INSERT INTO business_partner_contacts (business_partner_id, name, email, phone, is_primary)
-			VALUES (?, ?, ?, ?, ?)
-		`, bpID, c.Name, c.Email, c.Phone, c.IsPrimary)
+		if c.ID == 0 {
+			continue
+		}
+		if !existing[c.ID] || retained[c.ID] {
+			return fmt.Errorf("contact id must be unique and belong to this partner")
+		}
+		retained[c.ID] = true
+	}
+	for id := range existing {
+		if !retained[id] {
+			if _, err := tx.Exec(`DELETE FROM business_partner_contacts WHERE id=?`, id); err != nil {
+				return fmt.Errorf("cannot remove a contact referenced by an invoice: %w", err)
+			}
+		}
+	}
+	for _, c := range contacts {
+		if c.ID == 0 {
+			_, err = tx.Exec(`INSERT INTO business_partner_contacts(business_partner_id,name,email,phone,is_primary) VALUES(?,?,?,?,?)`, bpID, c.Name, c.Email, c.Phone, c.IsPrimary)
+		} else {
+			_, err = tx.Exec(`UPDATE business_partner_contacts SET name=?,email=?,phone=?,is_primary=? WHERE id=? AND business_partner_id=?`, c.Name, c.Email, c.Phone, c.IsPrimary, c.ID, bpID)
+		}
 		if err != nil {
 			return err
 		}
@@ -451,11 +490,14 @@ func GetBusinessPartnerByID(db *sql.DB, id int) (BusinessPartner, error) {
 		SELECT id, name, billing_address, invoice_currency, tax_information
 		FROM business_partners WHERE id = ?
 	`, id).Scan(&p.ID, &p.Name, &p.BillingAddress, &p.InvoiceCurrency, &p.TaxInformation)
-	
+
 	if err == nil {
 		p.Contacts, err = getBusinessPartnerContacts(db, p.ID)
+		if err == nil {
+			p.Addresses, err = GetBPAddresses(db, p.ID)
+		}
 	}
-	
+
 	return p, err
 }
 
@@ -482,8 +524,6 @@ func getBusinessPartnerContacts(db *sql.DB, bpID int) ([]BusinessPartnerContact,
 	}
 	return contacts, rows.Err()
 }
-
-
 
 // GetBusinessPartners fetches business partners, optionally filtering by name.
 func GetBusinessPartners(db *sql.DB, query string) ([]BusinessPartner, error) {
@@ -523,6 +563,9 @@ func GetBusinessPartners(db *sql.DB, query string) ([]BusinessPartner, error) {
 	}
 	for i := range partners {
 		partners[i].Contacts, err = getBusinessPartnerContacts(db, partners[i].ID)
+		if err == nil {
+			partners[i].Addresses, err = GetBPAddresses(db, partners[i].ID)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("loading contacts for partner %d: %w", partners[i].ID, err)
 		}
@@ -534,9 +577,10 @@ func GetBusinessPartners(db *sql.DB, query string) ([]BusinessPartner, error) {
 func GetSalesInvoices(db *sql.DB) ([]SalesInvoice, error) {
 	rows, err := db.Query(`
 		SELECT s.id, s.invoice_number, s.financial_year, s.business_partner_id, bp.name, 
-		       s.contact_id, s.invoice_date, s.due_in_days, s.due_date, s.currency, s.amount
+		       s.contact_id, s.invoice_date, s.due_in_days, s.due_date, s.currency, s.amount, s.is_closed, s.address_id, COALESCE(a.address,'')
 		FROM sales_invoices s
 		LEFT JOIN business_partners bp ON s.business_partner_id = bp.id
+ LEFT JOIN bp_addresses a ON s.address_id = a.id
 		ORDER BY s.invoice_date DESC
 	`)
 	if err != nil {
@@ -551,7 +595,7 @@ func GetSalesInvoices(db *sql.DB) ([]SalesInvoice, error) {
 		var contactID sql.NullInt64
 		if err := rows.Scan(
 			&inv.ID, &inv.InvoiceNumber, &inv.FinancialYear, &inv.BusinessPartnerID, &bpName,
-			&contactID, &inv.InvoiceDate, &inv.DueInDays, &inv.DueDate, &inv.Currency, &inv.Amount,
+			&contactID, &inv.InvoiceDate, &inv.DueInDays, &inv.DueDate, &inv.Currency, &inv.Amount, &inv.IsClosed, &inv.AddressID, &inv.BillingAddress,
 		); err != nil {
 			return nil, err
 		}
@@ -568,6 +612,9 @@ func GetSalesInvoices(db *sql.DB) ([]SalesInvoice, error) {
 			return nil, fmt.Errorf("loading line items for invoice %d: %w", inv.ID, err)
 		}
 		inv.LineItems = items
+		if err := invoiceBalance(db, &inv); err != nil {
+			return nil, err
+		}
 		invoices = append(invoices, inv)
 	}
 	return invoices, nil
@@ -580,13 +627,14 @@ func GetSalesInvoiceByID(db *sql.DB, id int) (SalesInvoice, error) {
 	var contactID sql.NullInt64
 	err := db.QueryRow(`
 		SELECT s.id, s.invoice_number, s.financial_year, s.business_partner_id, bp.name, 
-		       s.contact_id, s.invoice_date, s.due_in_days, s.due_date, s.currency, s.amount
+		       s.contact_id, s.invoice_date, s.due_in_days, s.due_date, s.currency, s.amount, s.is_closed, s.address_id, COALESCE(a.address,'')
 		FROM sales_invoices s
 		LEFT JOIN business_partners bp ON s.business_partner_id = bp.id
+ LEFT JOIN bp_addresses a ON s.address_id = a.id
 		WHERE s.id = ?
 	`, id).Scan(
 		&inv.ID, &inv.InvoiceNumber, &inv.FinancialYear, &inv.BusinessPartnerID, &bpName,
-		&contactID, &inv.InvoiceDate, &inv.DueInDays, &inv.DueDate, &inv.Currency, &inv.Amount,
+		&contactID, &inv.InvoiceDate, &inv.DueInDays, &inv.DueDate, &inv.Currency, &inv.Amount, &inv.IsClosed, &inv.AddressID, &inv.BillingAddress,
 	)
 	if err != nil {
 		return inv, err
@@ -603,6 +651,9 @@ func GetSalesInvoiceByID(db *sql.DB, id int) (SalesInvoice, error) {
 		return inv, err
 	}
 	inv.LineItems = items
+	if err := invoiceBalance(db, &inv); err != nil {
+		return inv, err
+	}
 	return inv, nil
 }
 
@@ -637,6 +688,14 @@ func SaveLineItems(db *sql.DB, invoiceID int, items []InvoiceLineItem) error {
 		return err
 	}
 	defer tx.Rollback()
+
+	var linked int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM invoice_allocations WHERE sales_invoice_id=?`, invoiceID).Scan(&linked); err != nil {
+		return err
+	}
+	if linked > 0 {
+		return fmt.Errorf("line items on a linked invoice cannot be changed")
+	}
 
 	// Delete existing line items
 	if _, err := tx.Exec(`DELETE FROM sales_invoice_line_items WHERE sales_invoice_id = ?`, invoiceID); err != nil {
@@ -675,6 +734,9 @@ func CreateSalesInvoice(db *sql.DB, inv SalesInvoice) (int, error) {
 		return 0, err
 	}
 	defer tx.Rollback()
+	if err := validateInvoiceAddress(tx, inv, nil, 0); err != nil {
+		return 0, err
+	}
 	inv.InvoiceNumber, err = nextInvoiceNumber(tx, fy)
 	if err != nil {
 		return 0, err
@@ -687,9 +749,9 @@ func CreateSalesInvoice(db *sql.DB, inv SalesInvoice) (int, error) {
 	}
 
 	result, err := tx.Exec(`
-		INSERT INTO sales_invoices (invoice_number, financial_year, business_partner_id, contact_id, invoice_date, due_in_days, due_date, currency, amount)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, inv.InvoiceNumber, inv.FinancialYear, inv.BusinessPartnerID, inv.ContactID, inv.InvoiceDate, inv.DueInDays, inv.DueDate, inv.Currency, total)
+		INSERT INTO sales_invoices (invoice_number, financial_year, business_partner_id, contact_id, invoice_date, due_in_days, due_date, currency, amount, is_closed, address_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, inv.InvoiceNumber, inv.FinancialYear, inv.BusinessPartnerID, inv.ContactID, inv.InvoiceDate, inv.DueInDays, inv.DueDate, inv.Currency, total, inv.IsClosed, inv.AddressID)
 	if err != nil {
 		return 0, err
 	}
@@ -718,8 +780,18 @@ func UpdateSalesInvoice(db *sql.DB, inv SalesInvoice) error {
 	if err != nil {
 		return err
 	}
-	var originalDate string
-	if err := db.QueryRow(`SELECT invoice_date FROM sales_invoices WHERE id = ?`, inv.ID).Scan(&originalDate); err != nil {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var originalAddress *int
+	var originalDate, currency string
+	var partner int
+	if err := tx.QueryRow(`SELECT invoice_date, currency, business_partner_id, address_id FROM sales_invoices WHERE id=?`, inv.ID).Scan(&originalDate, &currency, &partner, &originalAddress); err != nil {
+		return err
+	}
+	if err := validateInvoiceAddress(tx, inv, originalAddress, partner); err != nil {
 		return err
 	}
 	originalFY, err := InvoiceFinancialYear(originalDate)
@@ -729,27 +801,49 @@ func UpdateSalesInvoice(db *sql.DB, inv SalesInvoice) error {
 	if fy != originalFY {
 		return fmt.Errorf("invoice date must remain within financial year %s; create a new invoice for another financial year", originalFY)
 	}
-	// Compute total from line items
+	var linked int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM invoice_allocations WHERE sales_invoice_id=?`, inv.ID).Scan(&linked); err != nil {
+		return err
+	}
+	if linked > 0 {
+		rows, err := tx.Query(`SELECT description, hsn_sac_code, quantity, rate, gst_percent, amount FROM sales_invoice_line_items WHERE sales_invoice_id=? ORDER BY id`, inv.ID)
+		if err != nil {
+			return err
+		}
+		items := []InvoiceLineItem{}
+		for rows.Next() {
+			var item InvoiceLineItem
+			if err := rows.Scan(&item.Description, &item.HsnSacCode, &item.Quantity, &item.Rate, &item.GstPercent, &item.Amount); err != nil {
+				rows.Close()
+				return err
+			}
+			items = append(items, item)
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return err
+		}
+		if partner != inv.BusinessPartnerID || currency != inv.Currency || !sameInvoiceItems(items, inv.LineItems) {
+			return fmt.Errorf("linked invoice partner, currency and line items cannot be changed")
+		}
+	}
 	var total float64
 	for _, item := range inv.LineItems {
 		total += item.Amount
 	}
-
-	_, err = db.Exec(`
-		UPDATE sales_invoices
-		SET business_partner_id = ?, contact_id = ?, invoice_date = ?, due_in_days = ?, due_date = ?, currency = ?, amount = ?
-		WHERE id = ?
-	`, inv.BusinessPartnerID, inv.ContactID, inv.InvoiceDate, inv.DueInDays, inv.DueDate, inv.Currency, total, inv.ID)
-	if err != nil {
+	if _, err := tx.Exec(`UPDATE sales_invoices SET business_partner_id=?,contact_id=?,invoice_date=?,due_in_days=?,due_date=?,currency=?,amount=?,is_closed=?,address_id=? WHERE id=?`, inv.BusinessPartnerID, inv.ContactID, inv.InvoiceDate, inv.DueInDays, inv.DueDate, inv.Currency, total, inv.IsClosed, inv.AddressID, inv.ID); err != nil {
 		return err
 	}
-
-	// Replace line items
-	if err := SaveLineItems(db, inv.ID, inv.LineItems); err != nil {
-		return fmt.Errorf("saving line items: %w", err)
+	if _, err := tx.Exec(`DELETE FROM sales_invoice_line_items WHERE sales_invoice_id=?`, inv.ID); err != nil {
+		return err
 	}
-
-	return nil
+	for _, item := range inv.LineItems {
+		if _, err := tx.Exec(`INSERT INTO sales_invoice_line_items (sales_invoice_id,description,hsn_sac_code,quantity,rate,gst_percent,amount) VALUES(?,?,?,?,?,?,?)`, inv.ID, item.Description, item.HsnSacCode, item.Quantity, item.Rate, item.GstPercent, item.Amount); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // GetCompanyProfile fetches the singleton company profile.

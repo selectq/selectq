@@ -41,7 +41,19 @@ export class ListComponent implements OnInit {
     return bp?.contacts || [];
   }
 
+  get selectedBPAddresses() {
+    return this.businessPartners.find(p => p.id === this.formInvoice.business_partner_id)?.addresses || [];
+  }
+  get activeAddresses() { return this.selectedBPAddresses.filter(a => !a.is_archived); }
+  originalAddressID: number | null = null;
+  originalPartnerID = 0;
+  get retainedArchivedAddress() {
+    return this.isEditMode && this.originalPartnerID === this.formInvoice.business_partner_id
+      ? this.selectedBPAddresses.find(a => a.id === this.originalAddressID && a.is_archived) : undefined;
+  }
+
   onBusinessPartnerChange() {
+    this.formInvoice.address_id = this.activeAddresses.length === 1 ? this.activeAddresses[0].id : null;
     const contacts = this.selectedBPContacts;
     if (contacts.length > 0) {
       const primary = contacts.find(c => c.is_primary) || contacts[0];
@@ -64,6 +76,10 @@ export class ListComponent implements OnInit {
 
   // AG Grid Column Definitions
   public columnDefs: ColDef[] = [
+    { field: 'is_closed', headerName: 'Closed', width: 100 },
+    { field: 'expected_receipt', headerName: 'Expected receipt', width: 150 },
+    { field: 'received_amount', headerName: 'Received', width: 130 },
+    { field: 'outstanding_amount', headerName: 'Outstanding', width: 140 },
     { field: 'invoice_number', headerName: 'Invoice #', flex: 1, sortable: true, filter: true },
     { field: 'financial_year', headerName: 'FY', width: 110, sortable: true, filter: true },
     { field: 'business_partner_name', headerName: 'Business Partner', flex: 1.5, sortable: true, filter: true },
@@ -158,6 +174,8 @@ export class ListComponent implements OnInit {
     this.formInvoice = this.emptyInvoice();
     this.lineItems = [];
     this.isEditMode = false;
+    this.originalAddressID = null;
+    this.originalPartnerID = 0;
     this.recalcTotals();
     this.onDateChange();
     this.activeTab = 'create';
@@ -165,6 +183,8 @@ export class ListComponent implements OnInit {
 
   editInvoice(inv: SalesInvoice) {
     this.formInvoice = { ...inv };
+    this.originalAddressID = inv.address_id || null;
+    this.originalPartnerID = inv.business_partner_id;
     this.lineItems = (inv.line_items || []).map(li => ({ ...li }));
     this.isEditMode = true;
     this.recalcTotals();
@@ -228,6 +248,11 @@ export class ListComponent implements OnInit {
       return;
     }
 
+    const retainsLegacyEmpty = this.isEditMode && !this.originalAddressID && this.originalPartnerID === inv.business_partner_id;
+    if (!inv.address_id && this.selectedBPAddresses.length && !retainsLegacyEmpty) {
+      alert('Select an active billing address. Add one on the business partner if all addresses are archived.');
+      return;
+    }
     if (this.lineItems.length === 0) {
       alert('Please add at least one line item.');
       return;
@@ -403,7 +428,7 @@ export class ListComponent implements OnInit {
       <div class="party-block" style="text-align:right">
         <h4>Bill To (Buyer)</h4>
         <div class="name">${bp?.name || inv.business_partner_name || 'N/A'}</div>
-        ${bp?.billing_address ? `<div class="detail">${esc(bp.billing_address)}</div>` : ''}
+        ${inv.billing_address ? `<div class="detail">${esc(inv.billing_address)}</div>` : ''}
         ${bp?.tax_information ? `<div class="tax-label">Tax Info</div><div class="tax-value">${bp.tax_information}</div>` : ''}
         
         ${contact ? `

@@ -56,8 +56,12 @@
 
     <div class="detail-body">
       <div class="info-group">
-        <label>Billing Address</label>
-        <div class="info-value address">{{ selectedPartner.billing_address || 'Not provided' }}</div>
+        <label>Billing addresses</label>
+        <p *ngIf="!selectedPartner.addresses?.length">Not provided</p>
+        <div *ngFor="let address of selectedPartner.addresses" class="info-value address" style="margin-bottom: 1rem;">
+          <small>#{{ address.id }} {{ address.is_archived ? '(archived)' : '(active)' }} <span *ngIf="address.previous_address_id">/ replaces #{{ address.previous_address_id }}</span></small>
+          <div style="white-space: pre-wrap;">{{ address.address }}</div>
+        </div>
       </div>
 
       <div class="info-group">
@@ -112,10 +116,7 @@
         </div>
       </div>
 
-      <div class="form-group">
-        <label for="address">Billing Address</label>
-        <textarea id="address" formControlName="billing_address" rows="3" placeholder="123 Business St..."></textarea>
-      </div>
+      <app-partner-addresses [addresses]="bpForm.get('addresses')!.value || []" (addressesChange)="bpForm.patchValue({addresses: $event})" [disabled]="isSubmitting"></app-partner-addresses>
 
       <div class="form-row">
         <div class="form-group half">
@@ -137,14 +138,15 @@
       <!-- Contacts Section inline form -->
       <div class="contacts-section" style="margin-top: 8px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
         <div class="contacts-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-          <h3 style="margin: 0; font-size: 1.1rem; color: #1e293b;">Contacts</h3>
+          <h3 style="margin: 0; font-size: 1.1rem; color: #1e293b;">Contacts (optional)</h3>
           <button type="button" class="btn-secondary" style="padding: 4px 10px; font-size: 12px;" (click)="addContact()">+ Add</button>
         </div>
 
-        <div formArrayName="contacts">
+        <p *ngIf="contacts.length === 0" class="subtitle">No contacts added. You can save this partner without a contact.</p>
+      <div formArrayName="contacts">
           <div *ngFor="let contact of contacts.controls; let i=index" [formGroupName]="i" class="contact-card" style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 12px; position: relative; background: #fafbfc;">
             
-            <button type="button" *ngIf="contacts.length > 1" (click)="removeContact(i)" style="position: absolute; top: 8px; right: 8px; background: none; border: none; color: #ef4444; cursor: pointer; font-size: 18px; line-height: 1;" title="Remove Contact">&times;</button>
+            <button type="button" (click)="removeContact(i)" style="position: absolute; top: 8px; right: 8px; background: none; border: none; color: #ef4444; cursor: pointer; font-size: 18px; line-height: 1;" title="Remove Contact">&times;</button>
 
             <div class="form-group" style="margin-bottom: 10px;">
               <label style="font-size: 12px;">Name *</label>

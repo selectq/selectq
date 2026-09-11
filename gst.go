@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/gorilla/mux"
 	"github.com/selectq/selectq/core"
 	"github.com/selectq/selectq/handlers"
-	"github.com/gorilla/mux"
 )
 
 func main() {
@@ -30,31 +30,37 @@ func main() {
 
 	// --- API Endpoints ---
 	api := r.PathPrefix("/api").Subrouter()
-	
+
 	api.HandleFunc("/imports", srv.GetImports).Methods("GET")
 	api.HandleFunc("/imports/{id:[0-9]+}/transactions", srv.GetTransactions).Methods("GET")
 	api.HandleFunc("/transactions/{id:[0-9]+}", srv.UpdateTransaction).Methods("PUT")
-	
+
 	api.HandleFunc("/business-partners", srv.GetBusinessPartners).Methods("GET")
 	api.HandleFunc("/business-partners", srv.CreateBusinessPartner).Methods("POST")
 	api.HandleFunc("/business-partners/{id:[0-9]+}", srv.GetBusinessPartnerByID).Methods("GET")
 	api.HandleFunc("/business-partners/{id:[0-9]+}", srv.UpdateBusinessPartner).Methods("PUT")
 	api.HandleFunc("/business-partners/{id:[0-9]+}", srv.DeleteBusinessPartner).Methods("DELETE")
-	
+
 	api.HandleFunc("/sales-invoices", srv.GetSalesInvoices).Methods("GET")
 	api.HandleFunc("/sales-invoices", srv.CreateSalesInvoice).Methods("POST")
 	api.HandleFunc("/sales-invoices/{id:[0-9]+}", srv.GetSalesInvoiceByID).Methods("GET")
 	api.HandleFunc("/sales-invoices/{id:[0-9]+}", srv.UpdateSalesInvoice).Methods("PUT")
-	
+
 	api.HandleFunc("/company-profile", srv.GetCompanyProfile).Methods("GET")
 	api.HandleFunc("/company-profile", srv.SaveCompanyProfile).Methods("PUT")
-	
+
 	api.HandleFunc("/upload", srv.UploadStatement).Methods("POST")
+
+	api.HandleFunc("/db-browser/objects", srv.BrowserObjects).Methods("GET")
+	api.HandleFunc("/db-browser/detail", srv.BrowserDetail).Methods("GET")
+	api.HandleFunc("/db-browser/rows", srv.BrowserRows).Methods("GET")
+	api.HandleFunc("/db-browser/settings", srv.BrowserSettings).Methods("GET")
+	api.HandleFunc("/db-browser/sql", srv.BrowserSQL).Methods("POST")
 
 	// --- Serve Angular Frontend ---
 	// Angular 17 output path is usually dist/frontend/browser
 	fs := http.FileServer(http.Dir("frontend/dist/frontend/browser"))
-	
+
 	// Create a catch-all route for static files and Angular SPA routing
 	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		// If file does not exist, serve index.html (for Angular routing)

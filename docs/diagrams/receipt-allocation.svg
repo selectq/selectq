@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1060" viewBox="0 0 1200 1060" role="img" aria-labelledby="title desc">
+<title id="title">02 / Allocate bank receipts to sales invoices</title><desc id="desc">Many-to-many payments through invoice_allocations; all selected invoices must share the receipt partner. Relationships show cardinality at each end. PK means primary key; FK means foreign key; UQ means unique.</desc>
+<style>text{font-family:Segoe UI,Arial,sans-serif;fill:#172b4d} .title{font-size:28px;font-weight:700} .sub{font-size:15px;fill:#52657c} .entity{font-size:19px;font-weight:600;fill:white} .field{font-family:Consolas,monospace;font-size:15px} .label{font-size:14px;fill:#254e70;paint-order:stroke;stroke:#f4f7fb;stroke-width:6px;stroke-linejoin:round} .note{font-size:15px;fill:#354a62}</style>
+<rect width="1200" height="1060" fill="#f4f7fb"/>
+<text x="40" y="48" class="title">02 / Allocate bank receipts to sales invoices</text><text x="40" y="78" class="sub">Many-to-many payments through invoice_allocations; all selected invoices must share the receipt partner.</text>
+<path d="M425 210 H260 V340" fill="none" stroke="#66849d" stroke-width="2"/>
+<text x="395" y="199" text-anchor="middle" class="label">0..1</text>
+<text x="282" y="326" text-anchor="middle" class="label">0..*</text>
+<text x="265" y="247" text-anchor="middle" class="label">receipt partner</text>
+<path d="M775 210 H940 V340" fill="none" stroke="#66849d" stroke-width="2"/>
+<text x="801" y="199" text-anchor="middle" class="label">1</text>
+<text x="964" y="326" text-anchor="middle" class="label">0..*</text>
+<text x="942" y="247" text-anchor="middle" class="label">invoice owner</text>
+<path d="M260 583 V710 H460 V775" fill="none" stroke="#66849d" stroke-width="2"/>
+<text x="276" y="618" text-anchor="middle" class="label">1</text>
+<text x="483" y="762" text-anchor="middle" class="label">0..*</text>
+<text x="294" y="698" text-anchor="middle" class="label">allocates receipt</text>
+<path d="M940 556 V710 H740 V775" fill="none" stroke="#66849d" stroke-width="2"/>
+<text x="958" y="591" text-anchor="middle" class="label">1</text>
+<text x="765" y="762" text-anchor="middle" class="label">0..*</text>
+<text x="926" y="698" text-anchor="middle" class="label">receives payment</text>
+<rect x="425" y="125" width="350" height="108" rx="10" fill="white" stroke="#c6d4e1"/>
+<path d="M435 125 H765 Q775 125 775 135 V167 H425 V135 Q425 125 435 125" fill="#215b88"/>
+<text x="441" y="153" class="entity">business_partners</text>
+<text x="441" y="193" class="field">PK id</text>
+<text x="441" y="220" class="field">UQ name</text>
+<rect x="50" y="340" width="420" height="243" rx="10" fill="white" stroke="#c6d4e1"/>
+<path d="M60 340 H460 Q470 340 470 350 V382 H50 V350 Q50 340 60 340" fill="#215b88"/>
+<text x="66" y="368" class="entity">bank_transactions</text>
+<text x="66" y="408" class="field">PK id</text>
+<text x="66" y="435" class="field">FK business_partner_id (nullable)</text>
+<text x="66" y="462" class="field">deposit_amt / withdrawal_amt</text>
+<text x="66" y="489" class="field">currency / forex_amount</text>
+<text x="66" y="516" class="field">exchange_rate</text>
+<text x="66" y="543" class="field">account_head / sub_account_head</text>
+<text x="66" y="570" class="field">invoice_number (legacy text)</text>
+<rect x="730" y="340" width="420" height="216" rx="10" fill="white" stroke="#c6d4e1"/>
+<path d="M740 340 H1140 Q1150 340 1150 350 V382 H730 V350 Q730 340 740 340" fill="#087e83"/>
+<text x="746" y="368" class="entity">sales_invoices</text>
+<text x="746" y="408" class="field">PK id</text>
+<text x="746" y="435" class="field">FK business_partner_id</text>
+<text x="746" y="462" class="field">UQ invoice_number</text>
+<text x="746" y="489" class="field">currency</text>
+<text x="746" y="516" class="field">amount (before GST)</text>
+<text x="746" y="543" class="field">is_closed</text>
+<rect x="390" y="775" width="420" height="135" rx="10" fill="white" stroke="#c6d4e1"/>
+<path d="M400 775 H800 Q810 775 810 785 V817 H390 V785 Q390 775 400 775" fill="#6952a3"/>
+<text x="406" y="803" class="entity">invoice_allocations</text>
+<text x="406" y="843" class="field">PK, FK bank_transaction_id</text>
+<text x="406" y="870" class="field">PK, FK sales_invoice_id</text>
+<text x="406" y="897" class="field">amount (invoice currency)</text>
+<text x="50" y="948" class="note">The two FK columns together form the primary key: one row per receipt / invoice pair.</text>
+<text x="50" y="975" class="note">Matching partners, currencies, available balances and closed status are checked by application code.</text>
+<text x="50" y="1002" class="note">A receipt can leave cash unallocated. An invoice can remain partially paid across multiple receipts.</text>
+<text x="40" y="1036" class="sub">PK primary key · FK foreign key · UQ unique · 1 exactly one · 0..1 optional · 0..* zero or many</text></svg>

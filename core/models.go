@@ -11,17 +11,18 @@ type BankTransaction struct {
 	DepositAmt     float64 `json:"deposit_amt"`
 	ClosingBalance float64 `json:"closing_balance"`
 
+	Allocations []InvoiceAllocation `json:"allocations"`
 	// Classification fields
-	AccountHead         string  `json:"account_head"`
-	SubAccountHead      string  `json:"sub_account_head"`
-	InvoiceNumber       string  `json:"invoice_number"`
-	BusinessPartnerID   *int    `json:"business_partner_id"`
-	BusinessPartnerName string  `json:"business_partner_name"`
+	AccountHead         string `json:"account_head"`
+	SubAccountHead      string `json:"sub_account_head"`
+	InvoiceNumber       string `json:"invoice_number"`
+	BusinessPartnerID   *int   `json:"business_partner_id"`
+	BusinessPartnerName string `json:"business_partner_name"`
 
 	// Forex fields
-	Currency       string  `json:"currency"`
-	ExchangeRate   float64 `json:"exchange_rate"`
-	ForexAmount    float64 `json:"forex_amount"`
+	Currency     string  `json:"currency"`
+	ExchangeRate float64 `json:"exchange_rate"`
+	ForexAmount  float64 `json:"forex_amount"`
 }
 
 // Classification holds the result of a narration classification rule.
@@ -66,6 +67,7 @@ type BusinessPartnerContact struct {
 
 // BusinessPartner represents a client or vendor configured in the system.
 type BusinessPartner struct {
+	Addresses       []BPAddress              `json:"addresses"`
 	ID              int                      `json:"id"`
 	Name            string                   `json:"name"`
 	BillingAddress  string                   `json:"billing_address"`
@@ -76,6 +78,13 @@ type BusinessPartner struct {
 
 // SalesInvoice represents a sales invoice stored in the system.
 type SalesInvoice struct {
+	AddressID           *int              `json:"address_id"`
+	BillingAddress      string            `json:"billing_address"`
+	IsClosed            bool              `json:"is_closed"`
+	ExpectedReceipt     float64           `json:"expected_receipt"`
+	ReceivedAmount      float64           `json:"received_amount"`
+	OutstandingAmount   float64           `json:"outstanding_amount"`
+	IsSettled           bool              `json:"is_settled"`
 	ID                  int               `json:"id"`
 	InvoiceNumber       string            `json:"invoice_number"`
 	FinancialYear       string            `json:"financial_year"`

@@ -1,0 +1,55 @@
+﻿<div class="browser-header">
+  <div><h2>DB Browser</h2><p>Explore the SQLite database and run SQL.</p></div>
+  <div class="actions"><button (click)="refreshCatalog()">Refresh schema</button><button class="primary" (click)="openSQL()">SQL editor</button></div>
+</div>
+<p class="error" role="alert" *ngIf="catalogError">{{ catalogError }}</p>
+<div class="browser-layout">
+  <aside class="object-panel glass-card" aria-label="Database objects">
+    <label for="object-filter">Find an object or setting</label>
+    <input id="object-filter" [(ngModel)]="filter" placeholder="Filter names..." />
+    <section *ngFor="let group of groups">
+      <h3>{{ group.label }} <span>{{ group.objects.length }}</span></h3>
+      <button *ngFor="let object of group.objects" class="object" [class.active]="view === 'object' && selected?.name === object.name" (click)="selectObject(object)" [title]="object.name">{{ object.name }}</button>
+      <p class="empty" *ngIf="!group.objects.length">None</p>
+    </section>
+    <section><h3>System settings / PRAGMA</h3>
+      <button class="object" *ngFor="let name of settingNames" [class.active]="view === 'settings' && setting === name" (click)="selectSetting(name)">{{ name }}</button>
+    </section>
+  </aside>
+  <section class="detail-panel glass-card" aria-label="Database details">
+    <p class="error" role="alert" *ngIf="error">{{ error }}</p>
+    <ng-container *ngIf="view === 'object'">
+      <ng-container *ngIf="selected as object; else chooseObject">
+        <div class="browser-header"><div><small>{{ object.type }}</small><h3>{{ object.name }}</h3></div><button *ngIf="canBrowse" (click)="querySelected()">Open in SQL editor</button></div>
+        <div class="tabs"><button *ngIf="canBrowse" [class.active]="tab === 'rows'" (click)="changeTab('rows')">Rows</button><button [class.active]="tab === 'structure'" (click)="changeTab('structure')">Structure &amp; constraints</button><button (click)="loadSelection()">Reload</button></div>
+        <p *ngIf="loading" role="status">Loading...</p>
+        <ng-container *ngIf="!loading && !error">
+          <ng-container *ngIf="tab === 'rows' && result">
+            <ng-container *ngTemplateOutlet="grid; context: { $implicit: result }"></ng-container>
+            <div class="pagination"><button (click)="page(-1)" [disabled]="offset === 0">Previous</button><span>Offset {{ offset }} / {{ result.rows.length }} rows</span><button (click)="page(1)" [disabled]="!result.truncated">Next</button></div>
+          </ng-container>
+          <ng-container *ngIf="tab === 'structure' && detail">
+            <h4>Definition</h4><pre>{{ detail.object.sql || 'SQLite-managed index; see index columns and the parent table definition.' }}</pre>
+            <p class="hint">Primary keys and NOT NULL appear under Columns. Unique constraints appear under Indexes. CHECK expressions and defaults are preserved in the definition.</p>
+            <section *ngFor="let section of detail.sections | keyvalue"><h4>{{ section.key }}</h4><ng-container *ngTemplateOutlet="grid; context: { $implicit: section.value }"></ng-container></section>
+          </ng-container>
+        </ng-container>
+      </ng-container>
+      <ng-template #chooseObject><div class="welcome"><h3>Select a database object</h3><p>Browse rows, inspect keys and constraints, view sequence values, or open the SQL editor.</p></div></ng-template>
+    </ng-container>
+    <ng-container *ngIf="view === 'settings'"><h3>PRAGMA {{ setting }}</h3><p class="hint">Values use a fresh browser connection. Connection settings changed in SQL apply only within that request; persistent database settings remain saved.</p><ng-container *ngIf="settings[setting] as value"><ng-container *ngTemplateOutlet="grid; context: { $implicit: value }"></ng-container></ng-container></ng-container>
+    <ng-container *ngIf="view === 'sql'">
+      <h3>SQL editor</h3><p class="hint">SQL writes apply directly to this database and bypass application validation.</p>
+      <label for="sql-mode">Execution mode</label><select id="sql-mode" [(ngModel)]="mode" [disabled]="running"><option value="query">Statement with results (up to 1,000 rows)</option><option value="execute">Execute script (changes only)</option></select>
+      <label for="sql-editor">SQL</label><textarea id="sql-editor" [(ngModel)]="sql" [disabled]="running" spellcheck="false" (keydown.control.enter)="runSQL(); $event.preventDefault()"></textarea>
+      <p class="hint">Scripts run in order. Use BEGIN and COMMIT in the same script for an atomic batch. Earlier committed statements remain if a later statement fails. Requests time out after 10 seconds.</p>
+      <button class="primary" (click)="runSQL()" [disabled]="running || !sql.trim()">{{ running ? 'Running...' : 'Run SQL (Ctrl+Enter)' }}</button>
+      <p class="error" role="alert" *ngIf="sqlError">{{ sqlError }}</p>
+      <section *ngIf="sqlResult"><p role="status">Completed. {{ sqlResult.changes }} row changes (including triggers). {{ sqlResult.rows.length }} result rows.</p><p *ngIf="sqlResult.truncated" class="hint">Showing the first 1,000 rows. Add LIMIT / OFFSET to inspect more.</p><ng-container *ngTemplateOutlet="grid; context: { $implicit: sqlResult }"></ng-container></section>
+    </ng-container>
+  </section>
+</div>
+<ng-template #grid let-data>
+  <div class="data-grid" *ngIf="data.columns.length"><table><thead><tr><th *ngFor="let column of data.columns">{{ column }}</th></tr></thead><tbody><tr *ngFor="let row of data.rows"><td *ngFor="let value of row" [class.null]="value === null">{{ cell(value) }}</td></tr></tbody></table></div>
+  <p class="empty" *ngIf="!data.rows.length">No rows returned.</p>
+</ng-template>
