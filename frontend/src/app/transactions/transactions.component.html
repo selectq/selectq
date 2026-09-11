@@ -20,6 +20,7 @@
       [columnDefs]="columnDefs"
       [defaultColDef]="defaultColDef"
       (cellValueChanged)="onCellValueChanged($event)"
+      (cellClicked)="onCellClicked($event)"
       [animateRows]="true"
       [pagination]="true"
       [paginationPageSize]="20">
@@ -27,8 +28,8 @@
   </div>
 </div>
 
-<section class="glass-card allocation-panel" *ngIf="selected as txn">
-  <h3>Allocate receipt to invoices</h3>
+<section #allocationPanel class="glass-card allocation-panel" *ngIf="selected as txn" tabindex="-1" aria-labelledby="allocation-title">
+  <h3 id="allocation-title">Allocate receipt to invoices</h3>
   <p>{{ txn.narration }} / Deposit: {{ txn.deposit_amt | number:'1.2-2' }} INR
     <span *ngIf="txn.forex_amount"> / {{ txn.forex_amount | number:'1.2-2' }} {{ txn.currency }}</span></p>
   <label>Business partner

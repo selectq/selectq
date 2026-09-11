@@ -1,3 +1,7 @@
+import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { AgGridAngular } from 'ag-grid-angular';
+import { convertToParamMap } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { TransactionsComponent } from './transactions.component';
 import { ApiService, BankTransaction, SalesInvoice } from '../api.service';
@@ -37,5 +41,40 @@ describe('Transaction invoice allocation', () => {
     expect(component.selected).not.toBeNull();
     expect(component.allocationError).toContain('outstanding');
     expect(component.saving).toBeFalse();
+  });
+});
+
+// Exercise the template event binding and reveal the rendered allocation form.
+describe('Transaction allocation grid interaction', () => {
+  it('opens and reveals the clicked receipt, including an empty invoice cell', async () => {
+    const api = jasmine.createSpyObj('ApiService', ['getSalesInvoices', 'getTransactions', 'getBusinessPartners']);
+    const txn = { id: 8, invoice_number: '', narration: 'Receipt', deposit_amt: 100, allocations: [] } as unknown as BankTransaction;
+    api.getTransactions.and.returnValue(of([txn]));
+    api.getSalesInvoices.and.returnValue(of([]));
+    api.getBusinessPartners.and.returnValue(of([]));
+    await TestBed.configureTestingModule({ imports: [TransactionsComponent], providers: [
+      { provide: ApiService, useValue: api },
+      { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: '3' })) } },
+      { provide: Router, useValue: {} }
+    ] }).compileComponents();
+    const fixture = TestBed.createComponent(TransactionsComponent);
+    const scroll = spyOn(HTMLElement.prototype, 'scrollIntoView');
+    fixture.detectChanges();
+    const grid = fixture.debugElement.query(By.directive(AgGridAngular));
+    grid.triggerEventHandler('cellClicked', { colDef: { field: 'narration' }, data: txn });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.allocation-panel')).toBeNull();
+    grid.triggerEventHandler('cellClicked', { colDef: { field: 'invoice_number' }, data: txn });
+    fixture.detectChanges();
+    const panel = fixture.nativeElement.querySelector('.allocation-panel') as HTMLElement;
+    expect(panel).not.toBeNull();
+    expect(panel.textContent).toContain('Receipt');
+    expect(api.getSalesInvoices).toHaveBeenCalledTimes(1);
+    expect(scroll).toHaveBeenCalledWith({ block: 'start', behavior: 'smooth' });
+    expect(fixture.componentInstance.selected?.id).toBe(8);
+    fixture.componentInstance.saving = true;
+    grid.triggerEventHandler('cellClicked', { colDef: { field: 'invoice_number' }, data: { ...txn, id: 9 } });
+    expect(fixture.componentInstance.selected?.id).toBe(8);
+    fixture.destroy();
   });
 });

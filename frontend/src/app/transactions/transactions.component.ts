@@ -1,10 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { AfterViewChecked, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService, BankTransaction, BusinessPartner, SalesInvoice, InvoiceAllocation } from '../api.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AgGridAngular } from 'ag-grid-angular';
-import { ColDef, CellValueChangedEvent, ValueSetterParams, ValueFormatterParams } from 'ag-grid-community';
+import { ColDef, CellClickedEvent, CellValueChangedEvent, ValueSetterParams, ValueFormatterParams } from 'ag-grid-community';
 
 @Component({
   selector: 'app-transactions',
@@ -13,7 +13,23 @@ import { ColDef, CellValueChangedEvent, ValueSetterParams, ValueFormatterParams 
   templateUrl: './transactions.component.html',
   styleUrls: ['./transactions.component.css']
 })
-export class TransactionsComponent implements OnInit {
+export class TransactionsComponent implements OnInit, AfterViewChecked {
+  @ViewChild('allocationPanel') allocationPanel?: ElementRef<HTMLElement>;
+  private revealAllocation = false;
+
+  onCellClicked(event: CellClickedEvent<BankTransaction>) {
+    if (event.colDef.field === 'invoice_number' && event.data && !this.saving) {
+      this.openAllocation(event.data);
+    }
+  }
+
+  ngAfterViewChecked() {
+    if (this.revealAllocation && this.allocationPanel) {
+      this.revealAllocation = false;
+      this.allocationPanel.nativeElement.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      this.allocationPanel.nativeElement.focus({ preventScroll: true });
+    }
+  }
   transactions: BankTransaction[] = [];
   invoices: SalesInvoice[] = [];
   selected: BankTransaction | null = null;
@@ -22,7 +38,9 @@ export class TransactionsComponent implements OnInit {
   allocationError = '';
 
   openAllocation(txn: BankTransaction) {
+    if (this.saving) return;
     this.selected = { ...txn };
+    this.revealAllocation = true;
     this.allocations = (txn.allocations || []).map(a => ({ ...a }));
     this.allocationError = '';
     this.api.getSalesInvoices().subscribe({ next: data => this.invoices = data || [], error: err => this.allocationError = err.error || err.message });
@@ -57,7 +75,22 @@ export class TransactionsComponent implements OnInit {
     { field: 'narration', headerName: 'Narration', flex: 2, sortable: true, filter: true, wrapText: true, autoHeight: true },
     { field: 'withdrawal_amt', headerName: 'Withdrawal', width: 130, sortable: true, valueFormatter: this.currencyFormatter },
     { field: 'deposit_amt', headerName: 'Deposit', width: 130, sortable: true, valueFormatter: this.currencyFormatter },
-    { field: 'invoice_number', headerName: 'Invoices (click to allocate)', onCellClicked: params => this.openAllocation(params.data), editable: false, flex: 1, sortable: true, filter: true },
+    { field: 'currency', headerName: 'Currency', width: 115, minWidth: 115, sortable: true, filter: true,
+      valueGetter: params => params.data ? (params.data.currency?.trim().toUpperCase() || 'INR') : null },
+    { colId: 'amount_in_currency', headerName: 'Amount in Currency', width: 180, sortable: true, filter: 'agNumberColumnFilter',
+      headerTooltip: 'Original currency amount. INR rows use the deposit or withdrawal amount.',
+      valueGetter: params => {
+        const txn = params.data as BankTransaction | undefined;
+        if (!txn) return null;
+        const currency = txn.currency?.trim().toUpperCase() || 'INR';
+        return currency === 'INR' ? (txn.deposit_amt || txn.withdrawal_amt || 0) : txn.forex_amount;
+      },
+      valueFormatter: params => params.value == null ? '' : Number(params.value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      cellStyle: { textAlign: 'right' } },
+    { field: 'invoice_number', headerName: 'Invoices (click to allocate)', editable: false, minWidth: 190, flex: 1, sortable: true, filter: true,
+      cellStyle: { cursor: 'pointer', color: 'var(--primary-color)' },
+      valueFormatter: params => params.value || 'Allocate invoices...',
+      tooltipValueGetter: () => 'Click to allocate this receipt to invoices' },
     { field: 'account_head', headerName: 'Account Head', editable: true, flex: 1, sortable: true, filter: true },
     { field: 'sub_account_head', headerName: 'Sub Account', editable: true, flex: 1, sortable: true, filter: true },
     { 
@@ -76,6 +109,7 @@ export class TransactionsComponent implements OnInit {
 
   public defaultColDef: ColDef = {
     resizable: true,
+    minWidth: 130,
   };
 
   constructor(
