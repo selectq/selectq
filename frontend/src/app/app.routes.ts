@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { GSTR3BComponent } from './gstr3b/gstr3b.component';
 import { UploadComponent } from './upload/upload.component';
 import { HistoryComponent } from './history/history.component';
 import { TransactionsComponent } from './transactions/transactions.component';
@@ -18,6 +19,7 @@ export const routes: Routes = [
   { path: 'history/:id', component: TransactionsComponent },
   { path: 'business-partners', component: ListComponent },
   { path: 'sales-invoices', component: SalesInvoicesList },
+  { path: 'gstr3b', component: GSTR3BComponent },
   { path: 'db-browser', component: DBBrowserComponent },
   { path: 'reference-rates', component: ReferenceRatesComponent },
   { path: 'settings', component: SettingsComponent }

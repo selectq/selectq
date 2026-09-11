@@ -120,6 +120,13 @@ export interface DBResult { columns: string[]; rows: unknown[][]; truncated: boo
 export interface DBObject { type: string; name: string; table_name: string; sql: string; }
 export interface DBObjectDetail { object: DBObject; sections: Record<string, DBResult>; }
 
+export interface GSTR3BRow {
+  invoice_number: string; currency: string; amount: number; invoiced_to: string;
+  address: string; invoice_date: string; exchange_rate: number | null;
+  value_inr: number | null; reference_date: string | null;
+}
+export interface GSTR3BSummary { financial_year: string; financial_years: string[]; rows: GSTR3BRow[]; }
+
 export interface ReferenceRate {
   rate_date: string;
   currency: string;
@@ -138,6 +145,13 @@ export class ApiService {
   private baseUrl = '/api';
 
   constructor(private http: HttpClient) {}
+
+  getGSTR3B(financialYear = ''): Observable<GSTR3BSummary> {
+    return this.http.get<GSTR3BSummary>(`${this.baseUrl}/gstr3b`, { params: { financial_year: financialYear } });
+  }
+  downloadGSTR3B(financialYear: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/gstr3b/download`, { params: { financial_year: financialYear }, responseType: 'blob' });
+  }
 
   getDBObjects(): Observable<DBObject[]> { return this.http.get<DBObject[]>(`${this.baseUrl}/db-browser/objects`); }
   getDBDetail(name: string): Observable<DBObjectDetail> { return this.http.get<DBObjectDetail>(`${this.baseUrl}/db-browser/detail`, { params: { name } }); }

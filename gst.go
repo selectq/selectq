@@ -52,6 +52,8 @@ func main() {
 	api.HandleFunc("/upload", srv.UploadStatement).Methods("POST")
 
 	api.HandleFunc("/reference-rates", srv.GetReferenceRates).Methods("GET")
+	api.HandleFunc("/gstr3b", srv.GetGSTR3B).Methods("GET")
+	api.HandleFunc("/gstr3b/download", srv.DownloadGSTR3B).Methods("GET")
 	api.HandleFunc("/reference-rates", srv.SaveReferenceRate).Methods("POST")
 	api.HandleFunc("/reference-rates/import", srv.UploadReferenceRates).Methods("POST")
 	api.HandleFunc("/reference-rates/{date}/{currency}", srv.SaveReferenceRate).Methods("PUT")
