@@ -13,18 +13,10 @@
 <p role="status" *ngIf="loading">Loading summary…</p>
 <p class="warning" *ngIf="missingRates">{{ missingRates }} invoice(s) have no reference rate on or before the invoice date. Their INR values remain blank in the download.</p>
 <p class="hint">Exchange rates are INR per currency unit. The latest available rate on or before the invoice date is used. INR invoices use rate 1; a reference date does not apply.</p>
-<div class="glass-card table-scroll" *ngIf="!loading">
-  <table>
-    <thead><tr><th>Invoice Number</th><th>Currency</th><th>Amount in Currency</th><th>Invoiced To</th><th>Address</th><th>Invoice Date</th><th>Exchange Rate (INR per unit)</th><th>Value in INR</th><th>Reference Date</th></tr></thead>
-    <tbody>
-      <tr *ngFor="let row of rows">
-        <td>{{ row.invoice_number }}</td><td>{{ row.currency }}</td><td class="number">{{ row.amount | number:'1.2-2' }}</td>
-        <td>{{ row.invoiced_to }}</td><td class="address">{{ row.address }}</td><td>{{ row.invoice_date }}</td>
-        <td class="number">{{ row.exchange_rate === null ? 'Missing rate' : (row.exchange_rate | number:'1.0-12') }}</td>
-        <td class="number">{{ row.value_inr === null ? '—' : (row.value_inr | number:'1.2-2') }}</td>
-        <td>{{ row.currency === 'INR' ? 'Not applicable' : (row.reference_date || 'Unavailable') }}</td>
-      </tr>
-      <tr *ngIf="!rows.length"><td colspan="9">No invoices for {{ year }}.</td></tr>
-    </tbody>
-  </table>
-</div>
+<section class="glass-card" aria-label="GSTR-3B invoices" *ngIf="!loading">
+  <p *ngIf="!rows.length" role="status">No invoices for {{ year }}.</p>
+  <ag-grid-angular style="width: 100%; height: 560px;" [class]="isDarkMode ? 'ag-theme-quartz-dark' : 'ag-theme-quartz'"
+    [rowData]="rows" [columnDefs]="columnDefs" [defaultColDef]="defaultColDef"
+    [pagination]="true" [paginationPageSize]="20" [paginationPageSizeSelector]="[20, 50, 100]"
+    [animateRows]="true" [enableCellTextSelection]="true" />
+</section>

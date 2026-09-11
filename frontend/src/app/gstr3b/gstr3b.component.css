@@ -5,12 +5,6 @@ p, label { color: var(--text-secondary); }
 .controls { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; }
 select, .secondary { background: var(--bg-gradient-start); color: var(--text-primary); border: 1px solid var(--surface-border); padding: .65rem; border-radius: 8px; font: inherit; }
 button:disabled, select:disabled { opacity: .55; }
-.table-scroll { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; }
-th, td { text-align: left; padding: .8rem; border-bottom: 1px solid var(--surface-border); }
-th { color: var(--text-secondary); }
-.number { text-align: right; white-space: nowrap; }
-.address { white-space: pre-wrap; min-width: 200px; }
 .hint { font-size: .85rem; margin-bottom: 1rem; }
 .error { color: #ef4444; }
 .warning { padding: .8rem; background: rgba(245,158,11,.12); }
