@@ -37,6 +37,12 @@
 </section>
 <section class="glass-card rates-grid" aria-label="Saved reference rates">
   <div class="page-header"><h3>{{ rates.length }} reference rates</h3><button type="button" class="secondary" (click)="refresh()" [disabled]="busy">Refresh</button></div>
+  <div class="upload-controls">
+    <label>From date<input type="date" [(ngModel)]="fromDate" [max]="toDate" [disabled]="downloading" /></label>
+    <label>To date<input type="date" [(ngModel)]="toDate" [min]="fromDate" [disabled]="downloading" /></label>
+    <button type="button" class="btn-primary" (click)="download()" [disabled]="busy || downloading || !validRange">{{ downloading ? 'Downloading...' : 'Download Excel (.xlsx)' }}</button>
+  </div>
+  <p class="hint">Exports all saved rates within the selected dates, including both endpoints.</p>
   <p *ngIf="loading" role="status">Loading rates...</p>
   <ag-grid-angular style="width: 100%; height: 500px;" [class]="isDarkMode ? 'ag-theme-quartz-dark' : 'ag-theme-quartz'"
     [rowData]="rates" [columnDefs]="columnDefs" [defaultColDef]="defaultColDef" [pagination]="true" [paginationPageSize]="20"

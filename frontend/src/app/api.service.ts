@@ -182,6 +182,9 @@ export class ApiService {
   getDBSettings(): Observable<Record<string, DBResult>> { return this.http.get<Record<string, DBResult>>(`${this.baseUrl}/db-browser/settings`); }
   executeSQL(sql: string, mode: string): Observable<DBResult> { return this.http.post<DBResult>(`${this.baseUrl}/db-browser/sql`, { sql, mode }); }
 
+  downloadReferenceRates(from: string, to: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/reference-rates/download`, { params: { from, to }, responseType: 'blob' });
+  }
   getReferenceRates(): Observable<ReferenceRate[]> {
     return this.http.get<ReferenceRate[]>(`${this.baseUrl}/reference-rates`);
   }

@@ -14,6 +14,22 @@ import { ApiService, ReferenceRate } from '../api.service';
 })
 export class ReferenceRatesComponent implements OnInit, OnDestroy {
   rates: ReferenceRate[] = [];
+  fromDate = ''; toDate = ''; downloading = false;
+  get validRange() { return !!this.fromDate && !!this.toDate && this.fromDate <= this.toDate; }
+  download() {
+    if (this.busy || this.downloading || !this.validRange) return;
+    const from = this.fromDate, to = this.toDate;
+    this.downloading = true; this.error = '';
+    this.requests.add(this.api.downloadReferenceRates(from, to).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob); const a = document.createElement('a');
+        a.href = url; a.download = `ReferenceRates-${from}-to-${to}.xlsx`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000); this.downloading = false;
+      },
+      error: err => { this.downloading = false; this.error = err.status === 404 ? 'No reference rates found in the selected date range.' : 'Could not download rates. Check the date range and try again.'; }
+    }));
+  }
   file: File | null = null;
   sheet = '';
   draft: ReferenceRate | null = null;
