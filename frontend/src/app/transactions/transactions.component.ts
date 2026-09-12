@@ -19,8 +19,29 @@ export class TransactionsComponent implements OnInit, AfterViewChecked {
 
   onCellClicked(event: CellClickedEvent<BankTransaction>) {
     if (event.colDef.field === 'invoice_number' && event.data && !this.saving) {
-      this.openAllocation(event.data);
+      const txn = event.data;
+      if (txn.purchase_invoice_id || this.canRegisterPurchase(txn)) {
+        this.selected = null;
+        this.router.navigate(['/purchase-invoices'], { queryParams: {
+          transaction_id: txn.id, import_id: this.importId, id: txn.purchase_invoice_id || undefined
+        } });
+      } else if (this.canAllocateSales(txn)) this.openAllocation(txn);
     }
+  }
+
+  canAllocateSales(txn?: BankTransaction): boolean {
+    return !!txn && !txn.purchase_invoice_id && txn.account_head?.trim().toLowerCase() === 'sales invoice' && txn.deposit_amt > 0 && !txn.withdrawal_amt;
+  }
+  canRegisterPurchase(txn?: BankTransaction): boolean {
+    if (!txn || txn.withdrawal_amt <= 0 || txn.invoice_number?.trim()) return false;
+    const head = (txn.account_head || '').trim().toLowerCase();
+    return head !== 'sales invoice' && !/salary|personal/.test(`${head} ${txn.sub_account_head || ''}`.toLowerCase());
+  }
+  invoiceActionLabel(txn?: BankTransaction): string {
+    if (txn?.purchase_invoice_id) return 'View purchase invoice';
+    if (this.canRegisterPurchase(txn)) return 'Register purchase invoice...';
+    if (this.canAllocateSales(txn)) return txn?.invoice_number || 'Allocate sales invoices...';
+    return txn?.invoice_number || '';
   }
 
   ngAfterViewChecked() {
@@ -38,7 +59,7 @@ export class TransactionsComponent implements OnInit, AfterViewChecked {
   allocationError = '';
 
   openAllocation(txn: BankTransaction) {
-    if (this.saving) return;
+    if (this.saving || !this.canAllocateSales(txn)) return;
     this.selected = { ...txn };
     this.revealAllocation = true;
     this.allocations = (txn.allocations || []).map(a => ({ ...a }));
@@ -88,9 +109,9 @@ export class TransactionsComponent implements OnInit, AfterViewChecked {
       valueFormatter: params => params.value == null ? '' : Number(params.value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       cellStyle: { textAlign: 'right' } },
     { field: 'invoice_number', headerName: 'Invoices (click to allocate)', editable: false, minWidth: 190, flex: 1, sortable: true, filter: true,
-      cellStyle: { cursor: 'pointer', color: 'var(--primary-color)' },
-      valueFormatter: params => params.value || 'Allocate invoices...',
-      tooltipValueGetter: () => 'Click to allocate this receipt to invoices' },
+      cellStyle: params => ({ cursor: params.data?.purchase_invoice_id || this.canRegisterPurchase(params.data) || this.canAllocateSales(params.data) ? 'pointer' : 'default' }),
+      valueFormatter: params => this.invoiceActionLabel(params.data),
+      tooltipValueGetter: params => this.invoiceActionLabel(params.data) },
     { field: 'account_head', headerName: 'Account Head', editable: true, flex: 1, sortable: true, filter: true },
     { field: 'sub_account_head', headerName: 'Sub Account', editable: true, flex: 1, sortable: true, filter: true },
     { 

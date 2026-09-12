@@ -14,6 +14,7 @@ export interface ImportRecord {
 export interface InvoiceAllocation { sales_invoice_id: number; amount: number; }
 
 export interface BankTransaction {
+  purchase_invoice_id?: number | null;
   allocations?: InvoiceAllocation[];
   id: number;
   date: string;
@@ -31,6 +32,12 @@ export interface BankTransaction {
   currency: string;
   exchange_rate: number;
   forex_amount: number;
+}
+
+export interface PurchaseInvoice {
+  external_url?: string;
+  id?: number; bank_transaction_id: number | null; invoice_number: string; invoice_date: string;
+  party_name: string; party_address: string; party_gstin: string; total_amount: number; file_name: string;
 }
 
 export interface BusinessPartnerContact {
@@ -145,6 +152,16 @@ export class ApiService {
   private baseUrl = '/api';
 
   constructor(private http: HttpClient) {}
+
+  getPurchaseInvoices(): Observable<PurchaseInvoice[]> {
+    return this.http.get<PurchaseInvoice[]>(`${this.baseUrl}/purchase-invoices`);
+  }
+  savePurchaseInvoice(invoice: PurchaseInvoice, file: File | null): Observable<PurchaseInvoice> {
+    const body = new FormData(); body.append('invoice', JSON.stringify(invoice));
+    if (file) body.append('file', file);
+    return invoice.id ? this.http.put<PurchaseInvoice>(`${this.baseUrl}/purchase-invoices/${invoice.id}`, body)
+      : this.http.post<PurchaseInvoice>(`${this.baseUrl}/purchase-invoices`, body);
+  }
 
   getGSTR3B(financialYear = ''): Observable<GSTR3BSummary> {
     return this.http.get<GSTR3BSummary>(`${this.baseUrl}/gstr3b`, { params: { financial_year: financialYear } });

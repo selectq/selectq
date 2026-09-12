@@ -50,6 +50,10 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		db.Close()
 		return nil, err
 	}
+	if err := initPurchaseInvoices(db); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return db, nil
 }
 
@@ -288,7 +292,8 @@ func GetImports(db *sql.DB) ([]ImportRecord, error) {
 func GetTransactions(db *sql.DB, importID int) ([]BankTransaction, error) {
 	rows, err := db.Query(`
 		SELECT t.id, t.txn_date, t.narration, t.chq_ref_no, t.value_date, t.withdrawal_amt, t.deposit_amt, t.closing_balance,
-		       t.account_head, t.sub_account_head, t.invoice_number, t.business_partner_id, bp.name, t.currency, t.exchange_rate, t.forex_amount
+		       t.account_head, t.sub_account_head, t.invoice_number, t.business_partner_id, bp.name, t.currency, t.exchange_rate, t.forex_amount,
+               (SELECT p.id FROM purchase_invoices p WHERE p.bank_transaction_id=t.id)
 		FROM bank_transactions t
 		LEFT JOIN business_partners bp ON t.business_partner_id = bp.id
 		WHERE t.import_id = ?
@@ -307,7 +312,7 @@ func GetTransactions(db *sql.DB, importID int) ([]BankTransaction, error) {
 
 		if err := rows.Scan(
 			&t.ID, &t.Date, &t.Narration, &t.ChqRefNo, &t.ValueDate, &t.WithdrawalAmt, &t.DepositAmt, &t.ClosingBalance,
-			&t.AccountHead, &t.SubAccountHead, &t.InvoiceNumber, &bpID, &bpName, &t.Currency, &t.ExchangeRate, &t.ForexAmount,
+			&t.AccountHead, &t.SubAccountHead, &t.InvoiceNumber, &bpID, &bpName, &t.Currency, &t.ExchangeRate, &t.ForexAmount, &t.PurchaseInvoiceID,
 		); err != nil {
 			return nil, err
 		}

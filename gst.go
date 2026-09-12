@@ -42,6 +42,10 @@ func main() {
 	api.HandleFunc("/business-partners/{id:[0-9]+}", srv.DeleteBusinessPartner).Methods("DELETE")
 
 	api.HandleFunc("/sales-invoices", srv.GetSalesInvoices).Methods("GET")
+	api.HandleFunc("/purchase-invoices", srv.GetPurchaseInvoices).Methods("GET")
+	api.HandleFunc("/purchase-invoices", srv.SavePurchaseInvoice).Methods("POST")
+	api.HandleFunc("/purchase-invoices/{id:[0-9]+}", srv.SavePurchaseInvoice).Methods("PUT")
+	api.HandleFunc("/purchase-invoices/{id:[0-9]+}/file", srv.DownloadPurchaseInvoice).Methods("GET")
 	api.HandleFunc("/sales-invoices", srv.CreateSalesInvoice).Methods("POST")
 	api.HandleFunc("/sales-invoices/{id:[0-9]+}", srv.GetSalesInvoiceByID).Methods("GET")
 	api.HandleFunc("/sales-invoices/{id:[0-9]+}", srv.UpdateSalesInvoice).Methods("PUT")
