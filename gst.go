@@ -43,6 +43,8 @@ func main() {
 
 	api.HandleFunc("/sales-invoices", srv.GetSalesInvoices).Methods("GET")
 	api.HandleFunc("/purchase-invoices", srv.GetPurchaseInvoices).Methods("GET")
+	api.HandleFunc("/purchase-parties", srv.GetPurchaseParty).Methods("GET")
+	api.HandleFunc("/purchase-invoices/{id:[0-9]+}/link", srv.LinkPurchaseInvoice).Methods("POST")
 	api.HandleFunc("/purchase-invoices", srv.SavePurchaseInvoice).Methods("POST")
 	api.HandleFunc("/purchase-invoices/{id:[0-9]+}", srv.SavePurchaseInvoice).Methods("PUT")
 	api.HandleFunc("/purchase-invoices/{id:[0-9]+}/file", srv.DownloadPurchaseInvoice).Methods("GET")

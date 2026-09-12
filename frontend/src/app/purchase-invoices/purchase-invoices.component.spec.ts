@@ -1,4 +1,4 @@
-import { of, throwError } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { PurchaseInvoicesComponent } from './purchase-invoices.component';
 import { ApiService, BankTransaction, PurchaseInvoice } from '../api.service';
@@ -36,5 +36,45 @@ describe('Purchase invoice register', () => {
   api.getTransactions.and.returnValue(of([{ id: 12, withdrawal_amt: 100, account_head: 'To Personal' } as BankTransaction]));
   const c = component({transaction_id: '12', import_id: '3'}); c.ngOnInit();
   expect(c.draft).toBeNull(); expect(c.error).toContain('not eligible'); c.ngOnDestroy();
+ });
+});
+
+describe('Link existing purchase invoice', () => {
+ it('links an available invoice without resaving its details', () => {
+  const api = jasmine.createSpyObj('ApiService', ['linkPurchaseInvoice', 'savePurchaseInvoice']);
+  api.linkPurchaseInvoice.and.returnValue(of({}));
+  const c = new PurchaseInvoicesComponent(api, {} as ActivatedRoute);
+  c.sourceTransactionId = 12; c.selectedInvoiceId = 5;
+  c.invoices = [{ id: 5, bank_transaction_id: null, party_name: 'Supplier', external_url: 'https://example.com/invoice' }, { id: 6, bank_transaction_id: 8 }] as PurchaseInvoice[];
+  expect(c.unlinkedInvoices.map(i => i.id)).toEqual([5]);
+  c.linkExisting();
+  expect(api.linkPurchaseInvoice).toHaveBeenCalledWith(5, 12);
+  expect(api.savePurchaseInvoice).not.toHaveBeenCalled();
+  expect(c.invoices[0].bank_transaction_id).toBe(12);
+  expect(c.invoices[0].external_url).toBe('https://example.com/invoice');
+  expect(c.sourceTransactionId).toBeNull(); c.ngOnDestroy();
+ });
+});
+
+describe('Purchase GSTIN autofill', () => {
+ it('normalizes GSTIN and fills saved party details', () => {
+  const api = jasmine.createSpyObj('ApiService', ['getPurchaseParty']);
+  api.getPurchaseParty.and.returnValue(of({gstin:'27ABCDE1234F1Z5',party_name:'Supplier',party_address:'City'}));
+  const c = new PurchaseInvoicesComponent(api, {} as ActivatedRoute); c.add();
+  c.gstinChanged('27abcde1234f1z5');
+  expect(api.getPurchaseParty).toHaveBeenCalledWith('27ABCDE1234F1Z5');
+  expect(c.draft?.party_name).toBe('Supplier'); expect(c.draft?.party_address).toBe('City');
+  c.ngOnDestroy();
+ });
+ it('preserves manual edits made while a lookup is pending', () => {
+  const api = jasmine.createSpyObj('ApiService', ['getPurchaseParty']);
+  const response = new Subject<any>(); api.getPurchaseParty.and.returnValue(response);
+  const c = new PurchaseInvoicesComponent(api, {} as ActivatedRoute); c.add();
+  c.gstinChanged('27ABCDE1234F1Z5'); c.draft!.party_name = 'Manual';
+  response.next({party_name:'Cached',party_address:'City'});
+  expect(c.draft?.party_name).toBe('Manual');
+  c.gstinChanged('27ABCDE1234F1Z5'); c.add();
+  response.next({party_name:'Old response',party_address:'City'});
+  expect(c.draft?.party_name).toBe(''); c.ngOnDestroy();
  });
 });

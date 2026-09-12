@@ -153,6 +153,12 @@ export class ApiService {
 
   constructor(private http: HttpClient) {}
 
+  linkPurchaseInvoice(id: number, transactionId: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/purchase-invoices/${id}/link`, { bank_transaction_id: transactionId });
+  }
+  getPurchaseParty(gstin: string): Observable<{ gstin: string; party_name: string; party_address: string }> {
+    return this.http.get<{ gstin: string; party_name: string; party_address: string }>(`${this.baseUrl}/purchase-parties`, { params: { gstin } });
+  }
   getPurchaseInvoices(): Observable<PurchaseInvoice[]> {
     return this.http.get<PurchaseInvoice[]>(`${this.baseUrl}/purchase-invoices`);
   }

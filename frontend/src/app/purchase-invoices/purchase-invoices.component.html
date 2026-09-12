@@ -3,7 +3,17 @@
 <p *ngIf="importId"><a [routerLink]="['/history', importId]">Back to statement #{{ importId }}</a></p>
 <p *ngIf="loading" role="status">Loading purchase invoices...</p>
 <p *ngIf="error" class="error" role="alert">{{ error }}</p><p *ngIf="message" role="status">{{ message }}</p>
-<section class="glass-card" *ngIf="draft as invoice">
+<section class="glass-card" *ngIf="sourceTransactionId">
+<h3>Link an existing purchase invoice</h3>
+<p>Withdrawal #{{ sourceTransactionId }}: {{ source }}. Choose an invoice already in the register, or complete the new invoice form below.</p>
+<label>Available invoices<select [(ngModel)]="selectedInvoiceId" [disabled]="saving">
+<option [ngValue]="null">Select a purchase invoice</option>
+<option *ngFor="let existing of unlinkedInvoices" [ngValue]="existing.id">{{ existing.invoice_number || 'Invoice #' + existing.id }} — {{ existing.party_name }} — {{ existing.invoice_date }} — INR {{ existing.total_amount | number:'1.2-2' }}</option>
+</select></label>
+<p *ngIf="!unlinkedInvoices.length">No unlinked purchase invoices are available. Register a new invoice below.</p>
+<button class="btn-primary" (click)="linkExisting()" [disabled]="saving || !selectedInvoiceId">{{ saving ? 'Saving...' : 'Link selected invoice' }}</button>
+</section>
+<section id="purchase-invoice-editor" class="glass-card" *ngIf="draft as invoice">
 <h3>{{ invoice.id ? 'Edit purchase invoice' : 'New purchase invoice' }}</h3>
 <p *ngIf="invoice.bank_transaction_id">Linked withdrawal #{{ invoice.bank_transaction_id }} {{ source }}</p>
 <form #form="ngForm" (ngSubmit)="save()">
@@ -11,14 +21,17 @@
 <label>Invoice Date<input type="date" name="date" [(ngModel)]="invoice.invoice_date" required /></label>
 <label>Invoice Number (optional)<input name="number" [(ngModel)]="invoice.invoice_number" /></label>
 <label>Party Name<input name="party" [(ngModel)]="invoice.party_name" required /></label>
-<label>Party GSTIN (optional)<input name="gstin" [(ngModel)]="invoice.party_gstin" maxlength="15" pattern="[0-9]{2}[A-Za-z0-9]{13}" /></label>
+<label>Party GSTIN (optional)<input name="gstin" [ngModel]="invoice.party_gstin" (ngModelChange)="gstinChanged($event)" maxlength="15" pattern="[0-9]{2}[A-Za-z0-9]{13}" /></label>
+<p role="status" *ngIf="partyLookupMessage">{{ partyLookupMessage }}</p>
 <label>Party Address<textarea name="address" [(ngModel)]="invoice.party_address" required rows="3"></textarea></label>
 <label>Total Invoice Amount (INR)<input type="number" name="amount" [(ngModel)]="invoice.total_amount" min="0.01" step="0.01" required /></label>
 <label>External Invoice URL (optional)<input type="url" name="external_url" [(ngModel)]="invoice.external_url" placeholder="https://..." pattern="https?://.+" /><span>Link to an invoice stored externally, with or without an upload.</span></label>
 <label>Invoice Upload<input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="chooseFile($event)" /><span>PDF, JPEG or PNG, up to 10 MB. {{ invoice.file_name ? 'Existing file: ' + invoice.file_name : '' }}</span></label>
 </div><div class="actions"><button type="button" (click)="draft = null">Cancel</button><button class="btn-primary" type="submit" [disabled]="form.invalid">{{ saving ? 'Saving...' : 'Save purchase invoice' }}</button></div></fieldset>
 </form></section>
-<section class="glass-card register"><table><thead><tr><th>Invoice Date</th><th>Invoice Number</th><th>Party Name</th><th>Party Address</th><th>Party GSTIN</th><th>Total Invoice Amount (INR)</th><th>Invoice Document</th><th></th></tr></thead>
-<tbody><tr *ngFor="let invoice of invoices"><td>{{ invoice.invoice_date }}</td><td>{{ invoice.invoice_number || 'Not provided' }}</td><td>{{ invoice.party_name }}</td><td class="address">{{ invoice.party_address }}</td><td>{{ invoice.party_gstin || 'Not provided' }}</td><td>{{ invoice.total_amount | number:'1.2-2' }}</td>
-<td><a *ngIf="invoice.file_name" [href]="'/api/purchase-invoices/' + invoice.id + '/file'">{{ invoice.file_name }}</a><div *ngIf="invoice.external_url"><a [href]="invoice.external_url" target="_blank" rel="noopener noreferrer">Open external invoice</a></div><span *ngIf="!invoice.file_name && !invoice.external_url">Not provided</span></td>
-<td><button (click)="edit(invoice)" [disabled]="saving">Edit</button></td></tr><tr *ngIf="!invoices.length && !loading"><td colspan="8">No purchase invoices recorded.</td></tr></tbody></table></section>
+<section class="glass-card register" aria-label="Purchase invoice register" *ngIf="!loading">
+<ag-grid-angular style="width: 100%; height: 560px;" [class]="isDarkMode ? 'ag-theme-quartz-dark' : 'ag-theme-quartz'"
+ [rowData]="invoices" [columnDefs]="columnDefs" [defaultColDef]="defaultColDef"
+ (cellClicked)="onGridCellClicked($event)" [pagination]="true" [paginationPageSize]="20"
+ [paginationPageSizeSelector]="[20, 50, 100]" [enableCellTextSelection]="true" [animateRows]="true" />
+</section>

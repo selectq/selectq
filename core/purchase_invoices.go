@@ -45,6 +45,17 @@ func initPurchaseInvoices(db *sql.DB) error {
 	if _, err = addGSTColumn(tx, "purchase_invoices", "external_url", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
 	}
+	// Triggers enforce uniqueness without deleting or renumbering legacy duplicates.
+	_, err = tx.Exec(`CREATE INDEX IF NOT EXISTS purchase_invoice_number_lookup ON purchase_invoices(upper(trim(invoice_number)));
+ CREATE TRIGGER IF NOT EXISTS purchase_invoice_number_unique_insert BEFORE INSERT ON purchase_invoices
+ WHEN trim(NEW.invoice_number)<>'' AND EXISTS(SELECT 1 FROM purchase_invoices WHERE upper(trim(invoice_number))=upper(trim(NEW.invoice_number)))
+ BEGIN SELECT RAISE(ABORT,'Purchase invoice number already exists'); END;
+ CREATE TRIGGER IF NOT EXISTS purchase_invoice_number_unique_update BEFORE UPDATE OF invoice_number ON purchase_invoices
+ WHEN trim(NEW.invoice_number)<>'' AND NEW.invoice_number IS NOT OLD.invoice_number AND EXISTS(SELECT 1 FROM purchase_invoices WHERE id<>OLD.id AND upper(trim(invoice_number))=upper(trim(NEW.invoice_number)))
+ BEGIN SELECT RAISE(ABORT,'Purchase invoice number already exists'); END;`)
+	if err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 
@@ -155,6 +166,52 @@ func SavePurchaseInvoice(db *sql.DB, p *PurchaseInvoice) error {
 				return err
 			}
 		}
+	}
+	if p.PartyGSTIN != "" {
+		if _, err = tx.Exec(`INSERT INTO purchase_party_cache(gstin,party_name,party_address) VALUES(?,?,?) ON CONFLICT(gstin) DO UPDATE SET party_name=excluded.party_name,party_address=excluded.party_address`, p.PartyGSTIN, p.PartyName, p.PartyAddress); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// LinkPurchaseInvoice links existing records without rewriting invoice details or documents.
+func LinkPurchaseInvoice(db *sql.DB, invoiceID, transactionID int) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var amount float64
+	var head, sub, number string
+	if err = tx.QueryRow(`SELECT withdrawal_amt,COALESCE(account_head,''),COALESCE(sub_account_head,''),COALESCE(invoice_number,'') FROM bank_transactions WHERE id=?`, transactionID).Scan(&amount, &head, &sub, &number); err != nil {
+		return err
+	}
+	if !PurchaseEligible(amount, head, sub, number) {
+		return fmt.Errorf("This withdrawal is not eligible for purchase invoice linking")
+	}
+	var count int
+	if err = tx.QueryRow(`SELECT count(*) FROM invoice_allocations WHERE bank_transaction_id=?`, transactionID).Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		return fmt.Errorf("This withdrawal already has sales allocations")
+	}
+	var linked *int
+	if err = tx.QueryRow(`SELECT bank_transaction_id FROM purchase_invoices WHERE id=?`, invoiceID).Scan(&linked); err != nil {
+		return err
+	}
+	if linked != nil && *linked != transactionID {
+		return fmt.Errorf("This invoice is already linked to another withdrawal")
+	}
+	if err = tx.QueryRow(`SELECT count(*) FROM purchase_invoices WHERE bank_transaction_id=? AND id<>?`, transactionID, invoiceID).Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		return fmt.Errorf("This withdrawal already has a purchase invoice")
+	}
+	if _, err = tx.Exec(`UPDATE purchase_invoices SET bank_transaction_id=? WHERE id=?`, transactionID, invoiceID); err != nil {
+		return err
 	}
 	return tx.Commit()
 }

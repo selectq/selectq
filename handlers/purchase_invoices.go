@@ -100,3 +100,48 @@ func (s *Server) DownloadPurchaseInvoice(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": name}))
 	w.Write(data)
 }
+
+func (s *Server) LinkPurchaseInvoice(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil || id <= 0 {
+		http.Error(w, "Invalid invoice ID", 400)
+		return
+	}
+	var payload struct {
+		TransactionID int `json:"bank_transaction_id"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&payload); err != nil || payload.TransactionID <= 0 {
+		http.Error(w, "Choose a withdrawal", 400)
+		return
+	}
+	if err := core.LinkPurchaseInvoice(s.DB, id, payload.TransactionID); err != nil {
+		status := 400
+		if errors.Is(err, sql.ErrNoRows) {
+			status = 404
+		}
+		http.Error(w, err.Error(), status)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "Purchase invoice linked"})
+}
+
+func (s *Server) GetPurchaseParty(w http.ResponseWriter, r *http.Request) {
+	gstin := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("gstin")))
+	if len(gstin) != 15 {
+		http.Error(w, "Enter a 15-character GSTIN", 400)
+		return
+	}
+	p, err := core.GetPurchaseParty(s.DB, gstin)
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "No saved party for this GSTIN", 404)
+		return
+	}
+	if err != nil {
+		http.Error(w, "Could not look up party", 500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	json.NewEncoder(w).Encode(p)
+}

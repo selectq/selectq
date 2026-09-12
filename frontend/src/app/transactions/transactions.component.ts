@@ -94,8 +94,8 @@ export class TransactionsComponent implements OnInit, AfterViewChecked {
   public columnDefs: ColDef[] = [
     { field: 'date', headerName: 'Date', width: 120, sortable: true, filter: true },
     { field: 'narration', headerName: 'Narration', flex: 2, sortable: true, filter: true, wrapText: true, autoHeight: true },
-    { field: 'withdrawal_amt', headerName: 'Withdrawal', width: 130, sortable: true, valueFormatter: this.currencyFormatter },
-    { field: 'deposit_amt', headerName: 'Deposit', width: 130, sortable: true, valueFormatter: this.currencyFormatter },
+    { field: 'withdrawal_amt', headerName: 'Withdrawal', width: 130, sortable: true, filter: 'agNumberColumnFilter', valueFormatter: this.currencyFormatter },
+    { field: 'deposit_amt', headerName: 'Deposit', width: 130, sortable: true, filter: 'agNumberColumnFilter', valueFormatter: this.currencyFormatter },
     { field: 'currency', headerName: 'Currency', width: 115, minWidth: 115, sortable: true, filter: true,
       valueGetter: params => params.data ? (params.data.currency?.trim().toUpperCase() || 'INR') : null },
     { colId: 'amount_in_currency', headerName: 'Amount in Currency', width: 180, sortable: true, filter: 'agNumberColumnFilter',
