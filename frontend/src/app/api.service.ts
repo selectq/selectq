@@ -85,6 +85,12 @@ export interface InvoiceLineItem {
 }
 
 export interface SalesInvoice {
+  project_name?: string;
+  our_reference?: string;
+  your_reference?: string;
+  order_number?: string;
+  additional_information?: string;
+
   seller_gstin?: string;
   buyer_gstin?: string;
   gst_treatment?: 'intrastate' | 'interstate' | 'none';
@@ -249,6 +255,10 @@ export class ApiService {
 
   getSalesInvoices(): Observable<SalesInvoice[]> {
     return this.http.get<SalesInvoice[]>(`${this.baseUrl}/sales-invoices`);
+  }
+
+  downloadSalesInvoicePDF(id: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/sales-invoices/${id}/pdf`, { responseType: 'blob' });
   }
 
   getSalesInvoice(id: number): Observable<SalesInvoice> {

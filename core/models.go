@@ -79,6 +79,12 @@ type BusinessPartner struct {
 
 // SalesInvoice represents a sales invoice stored in the system.
 type SalesInvoice struct {
+	ProjectName           string `json:"project_name"`
+	OurReference          string `json:"our_reference"`
+	YourReference         string `json:"your_reference"`
+	OrderNumber           string `json:"order_number"`
+	AdditionalInformation string `json:"additional_information"`
+
 	SellerGSTIN         string            `json:"seller_gstin"`
 	BuyerGSTIN          string            `json:"buyer_gstin"`
 	GSTTreatment        string            `json:"gst_treatment"`

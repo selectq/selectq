@@ -1,3 +1,4 @@
+import { of, throwError } from 'rxjs';
 import { ListComponent } from './list.component';
 import { ApiService, BusinessPartner, SalesInvoice } from '../../api.service';
 
@@ -24,12 +25,22 @@ describe('Invoice billing address history', () => {
     component.formInvoice.business_partner_id = 2; component.onBusinessPartnerChange();
     expect(component.formInvoice.address_id).toBeNull(); expect(component.retainedArchivedAddress).toBeUndefined();
   });
-  it('prints the invoice address rather than the current partner address', () => {
-    const write = jasmine.createSpy('write');
-    spyOn(window, 'open').and.returnValue({ document: { write, close: () => {} } } as unknown as Window);
+  it('downloads a PDF for the saved invoice ID', () => {
+    const pdf = new Blob(['%PDF-1.7'], { type: 'application/pdf' });
+    const download = jasmine.createSpy('download').and.returnValue(of(pdf));
+    component = new ListComponent({ downloadSalesInvoicePDF: download } as unknown as ApiService);
+    spyOn(URL, 'createObjectURL').and.returnValue('blob:invoice');
+    const click = spyOn(HTMLAnchorElement.prototype, 'click');
     component.downloadPDF(invoice);
-    const html = write.calls.mostRecent().args[0] as string;
-    expect(html).toContain('Historical office'); expect(html).not.toContain('Current partner location');
+    expect(download).toHaveBeenCalledWith(1);
+    expect(URL.createObjectURL).toHaveBeenCalledWith(pdf);
+    expect(click).toHaveBeenCalled();
+    expect((click.calls.mostRecent().object as HTMLAnchorElement).download).toBe('Invoice-001-2026-2027.pdf');
+  });
+  it('shows PDF generation errors', () => {
+    component = new ListComponent({ downloadSalesInvoicePDF: () => throwError(() => new Error('failed')) } as unknown as ApiService);
+    spyOn(window, 'alert'); component.downloadPDF(invoice);
+    expect(window.alert).toHaveBeenCalledWith('Could not generate the invoice PDF. Please try again.');
   });
   it('uses partner currency for new lines without changing an existing invoice on edit', () => {
     component.businessPartners = [{ ...partner, invoice_currency: 'USD' }];
