@@ -14,6 +14,7 @@ export interface ImportRecord {
 export interface InvoiceAllocation { sales_invoice_id: number; amount: number; }
 
 export interface BankTransaction {
+  purchase_invoice_id?: number | null;
   allocations?: InvoiceAllocation[];
   id: number;
   date: string;
@@ -31,6 +32,12 @@ export interface BankTransaction {
   currency: string;
   exchange_rate: number;
   forex_amount: number;
+}
+
+export interface PurchaseInvoice {
+  external_url?: string;
+  id?: number; bank_transaction_id: number | null; invoice_number: string; invoice_date: string;
+  party_name: string; party_address: string; party_gstin: string; total_amount: number; file_name: string;
 }
 
 export interface BusinessPartnerContact {
@@ -146,6 +153,26 @@ export class ApiService {
 
   constructor(private http: HttpClient) {}
 
+  linkPurchaseInvoice(id: number, transactionId: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/purchase-invoices/${id}/link`, { bank_transaction_id: transactionId });
+  }
+  getPurchaseParty(gstin: string): Observable<{ gstin: string; party_name: string; party_address: string }> {
+    return this.http.get<{ gstin: string; party_name: string; party_address: string }>(`${this.baseUrl}/purchase-parties`, { params: { gstin } });
+  }
+  parsePurchaseInvoice(file: File): Observable<PurchaseInvoice> {
+    const body = new FormData(); body.append('file', file);
+    return this.http.post<PurchaseInvoice>(`${this.baseUrl}/purchase-invoices/parse`, body);
+  }
+  getPurchaseInvoices(): Observable<PurchaseInvoice[]> {
+    return this.http.get<PurchaseInvoice[]>(`${this.baseUrl}/purchase-invoices`);
+  }
+  savePurchaseInvoice(invoice: PurchaseInvoice, file: File | null): Observable<PurchaseInvoice> {
+    const body = new FormData(); body.append('invoice', JSON.stringify(invoice));
+    if (file) body.append('file', file);
+    return invoice.id ? this.http.put<PurchaseInvoice>(`${this.baseUrl}/purchase-invoices/${invoice.id}`, body)
+      : this.http.post<PurchaseInvoice>(`${this.baseUrl}/purchase-invoices`, body);
+  }
+
   getGSTR3B(financialYear = ''): Observable<GSTR3BSummary> {
     return this.http.get<GSTR3BSummary>(`${this.baseUrl}/gstr3b`, { params: { financial_year: financialYear } });
   }
@@ -159,6 +186,9 @@ export class ApiService {
   getDBSettings(): Observable<Record<string, DBResult>> { return this.http.get<Record<string, DBResult>>(`${this.baseUrl}/db-browser/settings`); }
   executeSQL(sql: string, mode: string): Observable<DBResult> { return this.http.post<DBResult>(`${this.baseUrl}/db-browser/sql`, { sql, mode }); }
 
+  downloadReferenceRates(from: string, to: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/reference-rates/download`, { params: { from, to }, responseType: 'blob' });
+  }
   getReferenceRates(): Observable<ReferenceRate[]> {
     return this.http.get<ReferenceRate[]>(`${this.baseUrl}/reference-rates`);
   }

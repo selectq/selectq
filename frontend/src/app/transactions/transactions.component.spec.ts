@@ -29,7 +29,7 @@ describe('Transaction invoice allocation', () => {
     expect(component.availableInvoices.map(i => i.id)).toEqual([1, 3]);
   });
   it('edits a copy so cancelling preserves saved allocations', () => {
-    const txn = { allocations: [{ sales_invoice_id: 1, amount: 10 }] } as BankTransaction;
+    const txn = { account_head: 'Sales Invoice', deposit_amt: 100, allocations: [{ sales_invoice_id: 1, amount: 10 }] } as BankTransaction;
     component.openAllocation(txn);
     component.setAllocation(1, 20);
     expect(txn.allocations![0].amount).toBe(10);
@@ -48,7 +48,7 @@ describe('Transaction invoice allocation', () => {
 describe('Transaction allocation grid interaction', () => {
   it('opens and reveals the clicked receipt, including an empty invoice cell', async () => {
     const api = jasmine.createSpyObj('ApiService', ['getSalesInvoices', 'getTransactions', 'getBusinessPartners']);
-    const txn = { id: 8, invoice_number: '', narration: 'Receipt', deposit_amt: 100, allocations: [] } as unknown as BankTransaction;
+    const txn = { id: 8, account_head: 'Sales Invoice', invoice_number: '', narration: 'Receipt', deposit_amt: 100, allocations: [] } as unknown as BankTransaction;
     api.getTransactions.and.returnValue(of([txn]));
     api.getSalesInvoices.and.returnValue(of([]));
     api.getBusinessPartners.and.returnValue(of([]));
@@ -76,5 +76,30 @@ describe('Transaction allocation grid interaction', () => {
     grid.triggerEventHandler('cellClicked', { colDef: { field: 'invoice_number' }, data: { ...txn, id: 9 } });
     expect(fixture.componentInstance.selected?.id).toBe(8);
     fixture.destroy();
+  });
+});
+
+describe('Transaction invoice action routing', () => {
+  it('routes purchases to the register and excludes salary, personal and other receipts', () => {
+    const api = jasmine.createSpyObj('ApiService', ['getSalesInvoices']);
+    api.getSalesInvoices.and.returnValue(of([]));
+    const router = jasmine.createSpyObj('Router', ['navigate']);
+    const component = new TransactionsComponent(api, {} as ActivatedRoute, router);
+    component.importId = 3;
+    const txn = { id: 12, withdrawal_amt: 100, deposit_amt: 0, account_head: 'Software/Services', invoice_number: '' } as BankTransaction;
+    const click = (data: BankTransaction) => component.onCellClicked({ colDef: { field: 'invoice_number' }, data } as any);
+    click(txn);
+    expect(router.navigate).toHaveBeenCalledWith(['/purchase-invoices'], { queryParams: { transaction_id: 12, import_id: 3, id: undefined } });
+    expect(api.getSalesInvoices).not.toHaveBeenCalled();
+    router.navigate.calls.reset();
+    for (const account_head of ['Salary', 'To Personal', 'Personal', 'Sales Invoice']) click({ ...txn, account_head });
+    click({ ...txn, invoice_number: 'existing' });
+    click({ ...txn, withdrawal_amt: 0, deposit_amt: 100 });
+    expect(router.navigate).not.toHaveBeenCalled();
+    expect(api.getSalesInvoices).not.toHaveBeenCalled();
+    click({ ...txn, account_head: 'Sales Invoice', withdrawal_amt: 0, deposit_amt: 100 });
+    expect(api.getSalesInvoices).toHaveBeenCalledTimes(1);
+    click({ ...txn, purchase_invoice_id: 7 });
+    expect(router.navigate).toHaveBeenCalledWith(['/purchase-invoices'], { queryParams: { transaction_id: 12, import_id: 3, id: 7 } });
   });
 });

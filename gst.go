@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/selectq/selectq/core"
@@ -42,6 +43,13 @@ func main() {
 	api.HandleFunc("/business-partners/{id:[0-9]+}", srv.DeleteBusinessPartner).Methods("DELETE")
 
 	api.HandleFunc("/sales-invoices", srv.GetSalesInvoices).Methods("GET")
+	api.HandleFunc("/purchase-invoices", srv.GetPurchaseInvoices).Methods("GET")
+	api.HandleFunc("/purchase-invoices/parse", srv.ParsePurchaseInvoice).Methods("POST")
+	api.HandleFunc("/purchase-parties", srv.GetPurchaseParty).Methods("GET")
+	api.HandleFunc("/purchase-invoices/{id:[0-9]+}/link", srv.LinkPurchaseInvoice).Methods("POST")
+	api.HandleFunc("/purchase-invoices", srv.SavePurchaseInvoice).Methods("POST")
+	api.HandleFunc("/purchase-invoices/{id:[0-9]+}", srv.SavePurchaseInvoice).Methods("PUT")
+	api.HandleFunc("/purchase-invoices/{id:[0-9]+}/file", srv.DownloadPurchaseInvoice).Methods("GET")
 	api.HandleFunc("/sales-invoices", srv.CreateSalesInvoice).Methods("POST")
 	api.HandleFunc("/sales-invoices/{id:[0-9]+}", srv.GetSalesInvoiceByID).Methods("GET")
 	api.HandleFunc("/sales-invoices/{id:[0-9]+}", srv.UpdateSalesInvoice).Methods("PUT")
@@ -52,6 +60,7 @@ func main() {
 	api.HandleFunc("/upload", srv.UploadStatement).Methods("POST")
 
 	api.HandleFunc("/reference-rates", srv.GetReferenceRates).Methods("GET")
+	api.HandleFunc("/reference-rates/download", srv.DownloadReferenceRates).Methods("GET")
 	api.HandleFunc("/gstr3b", srv.GetGSTR3B).Methods("GET")
 	api.HandleFunc("/gstr3b/download", srv.DownloadGSTR3B).Methods("GET")
 	api.HandleFunc("/reference-rates", srv.SaveReferenceRate).Methods("POST")
@@ -70,6 +79,10 @@ func main() {
 
 	// Create a catch-all route for static files and Angular SPA routing
 	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if strings.HasPrefix(req.URL.Path, "/api/") {
+			http.NotFound(w, req)
+			return
+		}
 		// If file does not exist, serve index.html (for Angular routing)
 		path := filepath.Join("frontend", "dist", "frontend", "browser", filepath.Clean(req.URL.Path))
 		if stat, err := os.Stat(path); os.IsNotExist(err) || stat.IsDir() {
