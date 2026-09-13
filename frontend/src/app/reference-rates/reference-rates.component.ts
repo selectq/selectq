@@ -22,6 +22,11 @@ export class ReferenceRatesComponent implements OnInit, OnDestroy {
     this.downloading = true; this.error = '';
     this.requests.add(this.api.downloadReferenceRates(from, to).subscribe({
       next: blob => {
+        if (blob.type !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+          this.downloading = false;
+          this.error = 'The server did not return an Excel workbook. Restart the updated server and try again.';
+          return;
+        }
         const url = URL.createObjectURL(blob); const a = document.createElement('a');
         a.href = url; a.download = `ReferenceRates-${from}-to-${to}.xlsx`;
         document.body.appendChild(a); a.click(); a.remove();

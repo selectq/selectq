@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/selectq/selectq/core"
@@ -77,6 +78,10 @@ func main() {
 
 	// Create a catch-all route for static files and Angular SPA routing
 	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if strings.HasPrefix(req.URL.Path, "/api/") {
+			http.NotFound(w, req)
+			return
+		}
 		// If file does not exist, serve index.html (for Angular routing)
 		path := filepath.Join("frontend", "dist", "frontend", "browser", filepath.Clean(req.URL.Path))
 		if stat, err := os.Stat(path); os.IsNotExist(err) || stat.IsDir() {
