@@ -1,4 +1,7 @@
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { AgGridAngular } from 'ag-grid-angular';
 import { ListComponent } from './list.component';
 import { ApiService, BusinessPartner, SalesInvoice } from '../../api.service';
 
@@ -72,4 +75,82 @@ describe('Invoice billing address history', () => {
     }
   });
 
+});
+
+describe('Sales invoice grid return navigation', () => {
+  let fixture: ComponentFixture<ListComponent>;
+  let component: ListComponent;
+  let refreshedInvoices: Subject<SalesInvoice[]>;
+  let invoices: SalesInvoice[];
+
+  const settleGrid = async () => {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await new Promise(resolve => setTimeout(resolve, 50));
+    fixture.detectChanges();
+  };
+  const grid = () => fixture.debugElement.query(By.directive(AgGridAngular)).componentInstance as AgGridAngular;
+
+  beforeEach(async () => {
+    invoices = Array.from({ length: 130 }, (_, index) => ({
+      id: index + 1, invoice_number: `${String(index + 1).padStart(3, '0')}/2026-2027`,
+      financial_year: '2026-2027', business_partner_id: 1,
+      invoice_date: '2026-09-11', currency: index < 120 ? 'INR' : 'USD', amount: 100,
+      line_items: [{ description: 'Services', quantity: 1, rate: 100, amount: 100, gst_percent: 0, hsn_sac_code: '' }]
+    }));
+    refreshedInvoices = new Subject<SalesInvoice[]>();
+    await TestBed.configureTestingModule({
+      imports: [ListComponent],
+      providers: [{ provide: ApiService, useValue: {
+        getBusinessPartners: () => of([]),
+        getSalesInvoices: jasmine.createSpy().and.returnValues(of(invoices), refreshedInvoices),
+        getCompanyProfile: () => of(null),
+        updateSalesInvoice: () => of({})
+      } }]
+    }).compileComponents();
+    fixture = TestBed.createComponent(ListComponent);
+    component = fixture.componentInstance;
+    await settleGrid();
+  });
+
+  it('restores filters, sort, page size and page after updating and refreshing invoices', async () => {
+    const api = grid().api;
+    const filters = { currency: { filterType: 'text', type: 'equals', filter: 'INR' } };
+    api.setFilterModel(filters);
+    api.applyColumnState({ state: [{ colId: 'invoice_number', sort: 'desc' }] });
+    api.setGridOption('paginationPageSize', 50);
+    api.paginationGoToPage(1);
+    await settleGrid();
+
+    component.editInvoice(api.getDisplayedRowAtIndex(50)!.data);
+    await settleGrid();
+    expect(fixture.nativeElement.querySelector('h3').textContent)
+      .toContain(`Edit Sales Invoice: ${component.formInvoice.invoice_number}`);
+    component.lineItems[0].description = 'Updated services';
+    fixture.nativeElement.querySelector('.form-actions .btn-primary').click();
+    await settleGrid();
+    expect(component.isLoading).toBeTrue();
+    refreshedInvoices.next(invoices.map(inv => inv.id === component.formInvoice.id
+      ? { ...component.formInvoice } : inv));
+    refreshedInvoices.complete();
+    await settleGrid();
+
+    const restored = grid().api;
+    expect(component.activeTab).toBe('view');
+    expect(restored.getFilterModel()).toEqual(filters);
+    expect(restored.paginationGetPageSize()).toBe(50);
+    expect(restored.paginationGetCurrentPage()).toBe(1);
+    expect(restored.getDisplayedRowCount()).toBe(120);
+    expect(restored.getColumnState().find(col => col.colId === 'invoice_number')?.sort).toBe('desc');
+    expect(restored.getDisplayedRowAtIndex(50)!.data.line_items[0].description).toBe('Updated services');
+  });
+
+  it('restores the current page when editing is cancelled', async () => {
+    grid().api.paginationGoToPage(2);
+    component.editInvoice(invoices[40]);
+    await settleGrid();
+    component.cancelForm();
+    await settleGrid();
+    expect(grid().api.paginationGetCurrentPage()).toBe(2);
+  });
 });

@@ -38,6 +38,8 @@
       style="width: 100%; height: 500px;"
       [class]="isDarkMode ? 'ag-theme-quartz-dark' : 'ag-theme-quartz'"
       [rowData]="invoices"
+      [gridOptions]="gridOptions"
+      [initialState]="gridState"
       [columnDefs]="columnDefs"
       [defaultColDef]="defaultColDef"
       [animateRows]="true"
@@ -51,7 +53,7 @@
 <div class="tab-content" *ngIf="activeTab === 'create'">
   <div class="glass-card form-card">
     <div class="form-header">
-      <h3>{{ isEditMode ? 'Edit Invoice' : 'Raise New Invoice' }}</h3>
+      <h3>{{ isEditMode ? 'Edit Sales Invoice: ' + formInvoice.invoice_number : 'Raise New Invoice' }}</h3>
       <p class="form-subtitle">{{ isEditMode ? 'Update the details for this invoice.' : 'Fill in the header and add line items.' }}</p>
     </div>
 

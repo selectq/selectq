@@ -4,7 +4,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService, SalesInvoice, BusinessPartner, InvoiceLineItem, CompanyProfile } from '../../api.service';
 import { AgGridAngular } from 'ag-grid-angular';
-import { ColDef, ValueFormatterParams } from 'ag-grid-community';
+import { ColDef, GridOptions, GridState, ValueFormatterParams } from 'ag-grid-community';
 
 @Component({
   selector: 'app-sales-invoices-list',
@@ -24,6 +24,13 @@ export class ListComponent implements OnInit {
 
   activeTab: 'view' | 'create' = 'view';
   isEditMode = false;
+
+  gridState: GridState | undefined;
+  readonly gridOptions: GridOptions<SalesInvoice> = {
+    // Angular destroys the grid on tab changes and while refreshing invoices.
+    // Register here so the state is captured before Angular tears it down.
+    onGridPreDestroyed: (event) => { this.gridState = event.state; }
+  };
 
   formInvoice: SalesInvoice = this.emptyInvoice();
   lineItems: InvoiceLineItem[] = [];
@@ -107,6 +114,7 @@ export class ListComponent implements OnInit {
   public columnDefs: ColDef[] = [
     {
       field: 'invoice_number', headerName: 'Invoice #', flex: 1, minWidth: 170,
+      pinned: 'left', lockPinned: true,
       sortable: true, filter: true, initialSort: 'asc',
       comparator: (a, b) => String(a ?? '').localeCompare(String(b ?? ''), 'en', { numeric: true })
     },
