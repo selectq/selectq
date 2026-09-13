@@ -78,3 +78,24 @@ describe('Purchase GSTIN autofill', () => {
   expect(c.draft?.party_name).toBe(''); c.ngOnDestroy();
  });
 });
+
+describe('Purchase invoice PDF upload', () => {
+ it('opens an extracted draft and retains the PDF for saving', () => {
+  const api = jasmine.createSpyObj('ApiService', ['parsePurchaseInvoice', 'savePurchaseInvoice']);
+  api.parsePurchaseInvoice.and.returnValue(of({ invoice_number: 'DPO2721818165521', invoice_date: '2026-08-06', party_name: 'HDFC Bank Ltd', party_address: 'Branch', party_gstin: '06AAACH2702H1Z4', total_amount: 2297.45 }));
+  const c = new PurchaseInvoicesComponent(api, {} as ActivatedRoute); c.sourceTransactionId = 12;
+  const file = new File(['%PDF-1.4'], 'invoice.pdf', {type:'application/pdf'});
+  c.parseInvoice({ target: { files: [file], value: 'invoice.pdf' } } as unknown as Event);
+  expect(c.draft?.invoice_number).toBe('DPO2721818165521');
+  expect(c.draft?.total_amount).toBe(2297.45); expect(c.draft?.bank_transaction_id).toBe(12);
+  expect(c.file).toBe(file); expect(api.savePurchaseInvoice).not.toHaveBeenCalled(); c.ngOnDestroy();
+ });
+ it('preserves the draft when extraction fails', () => {
+  const api = jasmine.createSpyObj('ApiService', ['parsePurchaseInvoice']);
+  api.parsePurchaseInvoice.and.returnValue(throwError(() => ({ error: 'Unsupported invoice' })));
+  const c = new PurchaseInvoicesComponent(api, {} as ActivatedRoute); c.add(); c.draft!.party_name = 'Manual';
+  const file = new File(['%PDF-1.4'], 'invoice.pdf');
+  c.parseInvoice({target:{files:[file],value:''}} as unknown as Event);
+  expect(c.draft?.party_name).toBe('Manual'); expect(c.error).toBe('Unsupported invoice'); expect(c.parsing).toBeFalse(); c.ngOnDestroy();
+ });
+});

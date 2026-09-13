@@ -159,6 +159,10 @@ export class ApiService {
   getPurchaseParty(gstin: string): Observable<{ gstin: string; party_name: string; party_address: string }> {
     return this.http.get<{ gstin: string; party_name: string; party_address: string }>(`${this.baseUrl}/purchase-parties`, { params: { gstin } });
   }
+  parsePurchaseInvoice(file: File): Observable<PurchaseInvoice> {
+    const body = new FormData(); body.append('file', file);
+    return this.http.post<PurchaseInvoice>(`${this.baseUrl}/purchase-invoices/parse`, body);
+  }
   getPurchaseInvoices(): Observable<PurchaseInvoice[]> {
     return this.http.get<PurchaseInvoice[]>(`${this.baseUrl}/purchase-invoices`);
   }

@@ -11,6 +11,25 @@ import { ApiService, PurchaseInvoice } from '../api.service';
  templateUrl: './purchase-invoices.component.html', styleUrl: './purchase-invoices.component.css' })
 export class PurchaseInvoicesComponent implements OnInit, OnDestroy {
  invoices: PurchaseInvoice[] = [];
+ parsing = false;
+ parseInvoice(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0]; input.value = '';
+  if (!file || this.saving || this.parsing) return;
+  if (!file.name.toLowerCase().endsWith('.pdf') || file.size === 0 || file.size > 10 * 1024 * 1024) {
+   this.error = 'Choose a PDF up to 10 MB.'; return;
+  }
+  this.parsing = true; this.error = ''; this.message = '';
+  this.requests.add(this.api.parsePurchaseInvoice(file).subscribe({
+   next: invoice => {
+    this.parsing = false; this.add();
+    this.draft = { ...invoice, id: undefined, bank_transaction_id: this.sourceTransactionId, file_name: '' };
+    this.file = file;
+    this.message = 'Invoice details extracted. Review the fields and save to register this invoice with its PDF.';
+   },
+   error: err => { this.parsing = false; this.error = typeof err.error === 'string' ? err.error : 'Could not parse the invoice. Enter the details manually.'; }
+  }));
+ }
  isDarkMode = true;
  private themeObserver?: MutationObserver;
  defaultColDef: ColDef<PurchaseInvoice> = { sortable: true, filter: true, resizable: true, wrapHeaderText: true, autoHeaderHeight: true };
@@ -42,6 +61,7 @@ export class PurchaseInvoicesComponent implements OnInit, OnDestroy {
     cellRenderer: () => { const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Edit'; button.className = 'grid-edit-btn'; return button; } }
  ];
  onGridCellClicked(event: CellClickedEvent<PurchaseInvoice>) {
+  if (this.parsing) return;
   if (event.column.getColId() === 'edit' && event.data && !this.saving) {
    this.edit(event.data);
    setTimeout(() => document.getElementById('purchase-invoice-editor')?.scrollIntoView({behavior: 'smooth', block: 'start'}));
@@ -76,7 +96,7 @@ export class PurchaseInvoicesComponent implements OnInit, OnDestroy {
  selectedInvoiceId: number | null = null;
  get unlinkedInvoices() { return this.invoices.filter(i => i.bank_transaction_id == null); }
  linkExisting() {
-  if (!this.sourceTransactionId || !this.selectedInvoiceId || this.saving) return;
+  if (!this.sourceTransactionId || !this.selectedInvoiceId || this.saving || this.parsing) return;
   const id = this.selectedInvoiceId;
   const transactionId = this.sourceTransactionId;
   this.saving = true; this.error = ''; this.message = '';
@@ -141,7 +161,7 @@ export class PurchaseInvoicesComponent implements OnInit, OnDestroy {
   if (this.file && (this.file.size > 10 * 1024 * 1024 || this.file.size === 0)) { this.error = 'Choose a non-empty PDF, JPEG or PNG up to 10 MB.'; this.file = null; }
  }
  save() {
-  if (!this.draft || this.saving) return;
+  if (!this.draft || this.saving || this.parsing) return;
   this.saving = true; this.error = ''; this.message = '';
   this.requests.add(this.api.savePurchaseInvoice(this.draft, this.file).subscribe({ next: saved => {
    this.saving = false; this.draft = null; this.file = null; this.message = 'Purchase invoice saved.'; this.sourceTransactionId = null; this.selectedInvoiceId = null;
