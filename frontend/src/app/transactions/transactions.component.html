@@ -4,7 +4,11 @@
       <button class="btn-back" (click)="goBack()">← Back</button>
       <h2>Transactions</h2>
     </div>
+    <button class="btn-primary" (click)="downloadStatement()" [disabled]="isLoading || isDownloading || saving">
+      {{ isDownloading ? 'Preparing download...' : 'Download Bank Statement' }}
+    </button>
   </div>
+  <p role="alert" *ngIf="downloadError">{{ downloadError }}</p>
   
   <p class="subtitle">Detailed view of classified transactions for Statement #{{ importId }}. Click an invoice cell to allocate a sales receipt or register an eligible purchase withdrawal.</p>
 

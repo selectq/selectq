@@ -225,7 +225,12 @@ func (s *Server) UploadStatement(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Store in database
-	count, err := core.StoreInDB(s.DB, meta, transactions, handler.Filename)
+	originalWorkbook, err := os.ReadFile(tempFile.Name())
+	if err != nil {
+		http.Error(w, "Could not retain original statement", http.StatusInternalServerError)
+		return
+	}
+	count, err := core.StoreInDB(s.DB, meta, transactions, handler.Filename, originalWorkbook)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error storing in database: %v", err), http.StatusInternalServerError)
 		return

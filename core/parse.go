@@ -16,7 +16,10 @@ func ParseStatement(xlsxPath string) (AccountMeta, []BankTransaction, error) {
 		return AccountMeta{}, nil, fmt.Errorf("open xlsx: %w", err)
 	}
 	defer f.Close()
+	return parseStatementWorkbook(f)
+}
 
+func parseStatementWorkbook(f *excelize.File) (AccountMeta, []BankTransaction, error) {
 	sheetName := f.GetSheetName(0)
 	rows, err := f.GetRows(sheetName)
 	if err != nil {
@@ -42,6 +45,7 @@ func ParseStatement(xlsxPath string) (AccountMeta, []BankTransaction, error) {
 		}
 
 		txn := BankTransaction{
+			SourceRow:      i + 1,
 			Date:           strings.TrimSpace(safeGet(row, 0)),
 			Narration:      strings.TrimSpace(safeGet(row, 1)),
 			ChqRefNo:       strings.TrimSpace(safeGet(row, 2)),

@@ -201,6 +201,11 @@ func AllocateTransaction(db *sql.DB, id int, head, sub, legacy string, partner *
 	} else if len(old) > 0 {
 		legacy = ""
 	}
+	if strings.EqualFold(strings.TrimSpace(head), "Sales Invoice") && partner != nil {
+		if err = tx.QueryRow(`SELECT name FROM business_partners WHERE id=?`, *partner).Scan(&sub); err != nil {
+			return fmt.Errorf("load sales business partner: %w", err)
+		}
+	}
 	if _, err = tx.Exec(`UPDATE bank_transactions SET account_head=?,sub_account_head=?,invoice_number=?,business_partner_id=? WHERE id=?`, head, sub, legacy, partner, id); err != nil {
 		return err
 	}

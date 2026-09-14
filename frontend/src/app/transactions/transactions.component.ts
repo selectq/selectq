@@ -89,6 +89,40 @@ export class TransactionsComponent implements OnInit, AfterViewChecked {
   businessPartners: BusinessPartner[] = [];
   isLoading = true;
   importId: number | null = null;
+  isDownloading = false;
+  downloadError = '';
+
+  downloadStatement() {
+    if (!this.importId || this.isDownloading) return;
+    this.isDownloading = true;
+    this.downloadError = '';
+    this.api.downloadStatement(this.importId).subscribe({
+      next: response => {
+        if (!response.body) {
+          this.downloadError = 'The statement download was empty. Please try again.';
+          this.isDownloading = false;
+          return;
+        }
+        const disposition = response.headers.get('Content-Disposition') || '';
+        const filename = /filename="([^"]+)"/.exec(disposition)?.[1]
+          || /filename=([^;]+)/.exec(disposition)?.[1]
+          || `Statement-${this.importId}-classified.xlsx`;
+        const url = URL.createObjectURL(response.body);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        this.isDownloading = false;
+      },
+      error: async err => {
+        this.downloadError = err.error instanceof Blob ? await err.error.text() : 'Could not download the statement. Please try again.';
+        this.isDownloading = false;
+      }
+    });
+  }
   isDarkMode = false;
 
   public columnDefs: ColDef[] = [
@@ -113,7 +147,12 @@ export class TransactionsComponent implements OnInit, AfterViewChecked {
       valueFormatter: params => this.invoiceActionLabel(params.data),
       tooltipValueGetter: params => this.invoiceActionLabel(params.data) },
     { field: 'account_head', headerName: 'Account Head', editable: true, flex: 1, sortable: true, filter: true },
-    { field: 'sub_account_head', headerName: 'Sub Account', editable: true, flex: 1, sortable: true, filter: true },
+    { field: 'sub_account_head', headerName: 'Sub Account Head',
+      editable: params => params.data?.account_head?.trim().toLowerCase() !== 'sales invoice',
+      valueGetter: params => params.data?.account_head?.trim().toLowerCase() === 'sales invoice'
+        ? params.data.business_partner_name || params.data.sub_account_head || ''
+        : params.data?.sub_account_head || '',
+      flex: 1, sortable: true, filter: true },
     { 
       field: 'business_partner_name', 
       headerName: 'Business Partner', 
