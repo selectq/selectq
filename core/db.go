@@ -63,7 +63,7 @@ func InitDB(dbPath string) (*sql.DB, error) {
 
 // StoreInDB saves parsed metadata and transactions to the database.
 // It returns the number of transactions successfully inserted.
-func StoreInDB(db *sql.DB, meta AccountMeta, transactions []BankTransaction, sourceFile string) (int, error) {
+func StoreInDB(db *sql.DB, meta AccountMeta, transactions []BankTransaction, sourceFile string, originalWorkbook ...[]byte) (int, error) {
 
 	// Insert into a transaction for atomicity
 	tx, err := db.Begin()
@@ -95,6 +95,11 @@ func StoreInDB(db *sql.DB, meta AccountMeta, transactions []BankTransaction, sou
 		return 0, fmt.Errorf("insert import: %w", err)
 	}
 	importID, _ := result.LastInsertId()
+	if len(originalWorkbook) > 0 && len(originalWorkbook[0]) > 0 {
+		if _, err := tx.Exec(`INSERT INTO statement_workbooks(import_id, workbook) VALUES (?, ?)`, importID, originalWorkbook[0]); err != nil {
+			return 0, fmt.Errorf("store original workbook: %w", err)
+		}
+	}
 
 	// Prepare transaction insert statement
 	stmt, err := tx.Prepare(`
@@ -162,6 +167,11 @@ func createTables(db *sql.DB) error {
 		statement_to   TEXT,
 		imported_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (account_no) REFERENCES accounts(account_no)
+	);
+
+	CREATE TABLE IF NOT EXISTS statement_workbooks (
+		import_id INTEGER PRIMARY KEY REFERENCES imports(id),
+		workbook BLOB NOT NULL
 	);
 
 	CREATE TABLE IF NOT EXISTS bank_transactions (

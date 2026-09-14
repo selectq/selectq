@@ -34,6 +34,7 @@ func main() {
 
 	api.HandleFunc("/imports", srv.GetImports).Methods("GET")
 	api.HandleFunc("/imports/{id:[0-9]+}/transactions", srv.GetTransactions).Methods("GET")
+	api.HandleFunc("/imports/{id:[0-9]+}/download", srv.DownloadStatement).Methods("GET")
 	api.HandleFunc("/transactions/{id:[0-9]+}", srv.UpdateTransaction).Methods("PUT")
 
 	api.HandleFunc("/business-partners", srv.GetBusinessPartners).Methods("GET")

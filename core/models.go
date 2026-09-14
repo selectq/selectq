@@ -2,6 +2,7 @@ package core
 
 // BankTransaction represents a single row from the HDFC bank statement.
 type BankTransaction struct {
+	SourceRow         int     `json:"-"`
 	PurchaseInvoiceID *int    `json:"purchase_invoice_id"`
 	ID                int     `json:"id"`
 	Date              string  `json:"date"`

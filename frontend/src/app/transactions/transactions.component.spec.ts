@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { HttpHeaders, HttpResponse } from '@angular/common/http';
 import { By } from '@angular/platform-browser';
 import { AgGridAngular } from 'ag-grid-angular';
 import { convertToParamMap } from '@angular/router';
@@ -11,10 +12,18 @@ describe('Transaction invoice allocation', () => {
   let component: TransactionsComponent;
   let api: jasmine.SpyObj<ApiService>;
   beforeEach(() => {
-    api = jasmine.createSpyObj('ApiService', ['getSalesInvoices', 'updateTransaction', 'getTransactions']);
+    api = jasmine.createSpyObj('ApiService', ['getSalesInvoices', 'updateTransaction', 'getTransactions', 'downloadStatement']);
     api.getSalesInvoices.and.returnValue(of([]));
     api.getTransactions.and.returnValue(of([]));
     component = new TransactionsComponent(api, {} as ActivatedRoute, {} as Router);
+  });
+  it('shows the partner in Sub Account Head and invoice references in Invoice', () => {
+    const txn = { account_head: 'Sales Invoice', deposit_amt: 100, business_partner_name: 'Studio South Design', invoice_number: '003/2026-2027' } as BankTransaction;
+    expect(component.invoiceActionLabel(txn)).toBe('003/2026-2027');
+    const column = component.columnDefs.find(c => c.field === 'sub_account_head')!;
+    expect((column.valueGetter as Function)({ data: txn })).toBe('Studio South Design');
+    expect(txn.invoice_number).toBe('003/2026-2027');
+    expect(component.invoiceActionLabel({ ...txn, business_partner_name: '' })).toBe('003/2026-2027');
   });
   it('suggests open invoices for the chosen partner and retains existing closed links', () => {
     component.selected = { business_partner_id: 1 } as BankTransaction;
@@ -27,6 +36,27 @@ describe('Transaction invoice allocation', () => {
       { id: 5, business_partner_id: 1, is_settled: true }
     ] as SalesInvoice[];
     expect(component.availableInvoices.map(i => i.id)).toEqual([1, 3]);
+  });
+
+  it('downloads the statement for the current history page', () => {
+    component.importId = 3;
+    const workbook = new Blob(['xlsx']);
+    api.downloadStatement.and.returnValue(of(new HttpResponse({ body: workbook, headers: new HttpHeaders({ 'Content-Disposition': 'attachment; filename="bank-classified.xlsx"' }) })));
+    spyOn(URL, 'createObjectURL').and.returnValue('blob:statement');
+    const click = spyOn(HTMLAnchorElement.prototype, 'click');
+    component.downloadStatement();
+    expect(api.downloadStatement).toHaveBeenCalledOnceWith(3);
+    expect((click.calls.mostRecent().object as HTMLAnchorElement).download).toBe('bank-classified.xlsx');
+    expect(component.isDownloading).toBeFalse();
+  });
+
+  it('shows missing-original errors and allows retry', async () => {
+    component.importId = 3;
+    api.downloadStatement.and.returnValue(throwError(() => ({ error: new Blob(['Original workbook unavailable']) })));
+    component.downloadStatement();
+    await new Promise(resolve => setTimeout(resolve, 20));
+    expect(component.downloadError).toBe('Original workbook unavailable');
+    expect(component.isDownloading).toBeFalse();
   });
   it('edits a copy so cancelling preserves saved allocations', () => {
     const txn = { account_head: 'Sales Invoice', deposit_amt: 100, allocations: [{ sales_invoice_id: 1, amount: 10 }] } as BankTransaction;

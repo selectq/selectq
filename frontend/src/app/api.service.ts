@@ -261,6 +261,10 @@ export class ApiService {
     return this.http.get(`${this.baseUrl}/sales-invoices/${id}/pdf`, { responseType: 'blob' });
   }
 
+  downloadStatement(importId: number) {
+    return this.http.get(`${this.baseUrl}/imports/${importId}/download`, { responseType: 'blob', observe: 'response' });
+  }
+
   downloadSalesInvoicesZIP(ids: number[]): Observable<Blob> {
     return this.http.post(`${this.baseUrl}/sales-invoices/pdf-download`, { ids }, { responseType: 'blob' });
   }
