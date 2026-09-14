@@ -20,6 +20,8 @@ document. The first page includes the selected contact, saved billing address,
 saved seller GSTIN, buyer GSTIN, project/references, dates, item table and totals.
 The heading displays `Invoice: <Invoice Number>` using the saved invoice number.
 The seller ("From") block starts farther right, using a 7:5 buyer/seller column split.
+Project Name, Our Ref, Your Ref and Order No use the same split so their left edge
+aligns with the seller details above.
 INR invoices retain the existing CGST/SGST or IGST calculation; other currencies
 have no GST columns. Payment currency and payer transfer-charge instructions print
 below the table, followed by optional invoice notes and the annexure reference.

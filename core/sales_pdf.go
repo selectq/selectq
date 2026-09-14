@@ -53,13 +53,13 @@ func SalesInvoicePDF(inv SalesInvoice, company CompanyProfile, contact BusinessP
 			})
 			c.Spacer(builder.Mm(5))
 			c.Row(func(r *builder.RowBuilder) {
-				r.Col(6, func(col *builder.ColBuilder) {
+				r.Col(7, func(col *builder.ColBuilder) {
 					field(&col.Container, "Invoice Reference No", inv.InvoiceNumber)
 					field(&col.Container, "Invoice Date", inv.InvoiceDate)
 					field(&col.Container, "Payment Terms", fmt.Sprintf("%d Days", inv.DueInDays))
 					field(&col.Container, "Due Date", inv.DueDate)
 				})
-				r.Col(6, func(col *builder.ColBuilder) {
+				r.Col(5, func(col *builder.ColBuilder) {
 					field(&col.Container, "Project Name", inv.ProjectName)
 					field(&col.Container, "Our Ref", inv.OurReference)
 					field(&col.Container, "Your Ref", inv.YourReference)
