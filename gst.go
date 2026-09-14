@@ -25,12 +25,18 @@ func main() {
 
 	// Initialize Gorilla Mux Router
 	r := mux.NewRouter()
+	auth, err := handlers.NewAuthFromEnv()
+	if err != nil {
+		log.Fatal(err)
+	}
+	auth.Register(r)
 
 	// Initialize the Handlers Server
 	srv := handlers.NewServer(db)
 
 	// --- API Endpoints ---
 	api := r.PathPrefix("/api").Subrouter()
+	api.Use(auth.Require)
 
 	api.HandleFunc("/imports", srv.GetImports).Methods("GET")
 	api.HandleFunc("/imports/{id:[0-9]+}/transactions", srv.GetTransactions).Methods("GET")

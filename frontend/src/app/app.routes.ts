@@ -13,8 +13,15 @@ import { DBBrowserComponent } from './db-browser/db-browser.component';
 
 import { ReferenceRatesComponent } from './reference-rates/reference-rates.component';
 
+import { LandingComponent } from './landing/landing.component';
+import { LoginComponent } from './login/login.component';
+import { WorkspaceComponent } from './workspace/workspace.component';
+import { workspaceGuard } from './auth.service';
+
 export const routes: Routes = [
-  { path: '', redirectTo: 'upload', pathMatch: 'full' },
+  { path: '', component: LandingComponent, pathMatch: 'full', title: 'Select Q | Design & Interiors' },
+  { path: 'login', component: LoginComponent, title: 'Team access | Select Q' },
+  { path: '', component: WorkspaceComponent, canActivateChild: [workspaceGuard], children: [
   { path: 'upload', component: UploadComponent },
   { path: 'history', component: HistoryComponent },
   { path: 'history/:id', component: TransactionsComponent },
@@ -25,4 +32,6 @@ export const routes: Routes = [
   { path: 'db-browser', component: DBBrowserComponent },
   { path: 'reference-rates', component: ReferenceRatesComponent },
   { path: 'settings', component: SettingsComponent }
+  ] },
+  { path: '**', redirectTo: '' }
 ];
