@@ -51,6 +51,7 @@ func main() {
 	api.HandleFunc("/purchase-invoices/{id:[0-9]+}", srv.SavePurchaseInvoice).Methods("PUT")
 	api.HandleFunc("/purchase-invoices/{id:[0-9]+}/file", srv.DownloadPurchaseInvoice).Methods("GET")
 	api.HandleFunc("/sales-invoices", srv.CreateSalesInvoice).Methods("POST")
+	api.HandleFunc("/sales-invoices/pdf-download", srv.DownloadSalesInvoicesZIP).Methods("POST")
 	api.HandleFunc("/sales-invoices/{id:[0-9]+}/pdf", srv.DownloadSalesInvoicePDF).Methods("GET")
 	api.HandleFunc("/sales-invoices/{id:[0-9]+}", srv.GetSalesInvoiceByID).Methods("GET")
 	api.HandleFunc("/sales-invoices/{id:[0-9]+}", srv.UpdateSalesInvoice).Methods("PUT")

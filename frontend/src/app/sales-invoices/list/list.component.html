@@ -34,6 +34,12 @@
   </div>
 
   <div class="grid-container glass-card" *ngIf="!isLoading && invoices.length > 0">
+    <div style="padding: 1rem;">
+      <button class="btn-primary" [disabled]="selectedInvoiceIDs.length === 0 || isDownloading" (click)="downloadSelectedPDFs()">
+        {{ isDownloading ? 'Preparing download...' : 'Download selected (' + selectedInvoiceIDs.length + ') as ZIP' }}
+      </button>
+      <p class="subtitle">Select up to 100 invoices. The header checkbox selects all filtered invoices across pages.</p>
+    </div>
     <ag-grid-angular
       style="width: 100%; height: 500px;"
       [class]="isDarkMode ? 'ag-theme-quartz-dark' : 'ag-theme-quartz'"

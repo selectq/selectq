@@ -112,6 +112,31 @@ describe('Sales invoice grid return navigation', () => {
     component = fixture.componentInstance;
     await settleGrid();
   });
+  it('downloads selected invoices as one ZIP and prevents repeated requests while pending', () => {
+    const response = new Subject<Blob>();
+    const download = jasmine.createSpy('download').and.returnValue(response);
+    component = new ListComponent({ downloadSalesInvoicesZIP: download } as unknown as ApiService);
+    spyOn(URL, 'createObjectURL').and.returnValue('blob:invoices');
+    const click = spyOn(HTMLAnchorElement.prototype, 'click');
+    component.downloadSelectedPDFs();
+    expect(download).not.toHaveBeenCalled();
+    component.selectedInvoiceIDs = [1, 2];
+    component.downloadSelectedPDFs();
+    component.downloadSelectedPDFs();
+    expect(download).toHaveBeenCalledOnceWith([1, 2]);
+    expect(component.isDownloading).toBeTrue();
+    response.next(new Blob(['zip']));
+    expect((click.calls.mostRecent().object as HTMLAnchorElement).download).toBe('Invoices.zip');
+    expect(component.isDownloading).toBeFalse();
+  });
+  it('allows retry after a bulk download failure', () => {
+    component = new ListComponent({ downloadSalesInvoicesZIP: () => throwError(() => new Error('failed')) } as unknown as ApiService);
+    spyOn(window, 'alert');
+    component.selectedInvoiceIDs = [1, 2];
+    component.downloadSelectedPDFs();
+    expect(component.isDownloading).toBeFalse();
+    expect(window.alert).toHaveBeenCalledWith('Could not download the selected invoices. Please try again.');
+  });
 
   it('restores filters, sort, page size and page after updating and refreshing invoices', async () => {
     const api = grid().api;
@@ -152,5 +177,20 @@ describe('Sales invoice grid return navigation', () => {
     component.cancelForm();
     await settleGrid();
     expect(grid().api.paginationGetCurrentPage()).toBe(2);
+  });
+  it('selects filtered invoices across pages and restores selection after editing', async () => {
+    const api = grid().api;
+    api.setFilterModel({ currency: { filterType: 'text', type: 'equals', filter: 'USD' } });
+    await settleGrid();
+    api.selectAllFiltered();
+    await settleGrid();
+    expect(component.selectedInvoiceIDs.length).toBe(10);
+    expect(component.selectedInvoiceIDs.every(id => id > 120)).toBeTrue();
+    component.editInvoice(invoices[120]);
+    await settleGrid();
+    component.cancelForm();
+    await settleGrid();
+    expect(component.selectedInvoiceIDs.length).toBe(10);
+    expect(grid().api.getSelectedRows().length).toBe(10);
   });
 });

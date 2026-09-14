@@ -19,6 +19,8 @@ export class ListComponent implements OnInit {
   currencies: string[] = ['INR', 'USD', 'GBP', 'EUR', 'AED', 'CHF'];
   isLoading = true;
   isSaving = false;
+  selectedInvoiceIDs: number[] = [];
+  isDownloading = false;
   isDarkMode = true;
   companyProfile: CompanyProfile | null = null;
 
@@ -27,6 +29,15 @@ export class ListComponent implements OnInit {
 
   gridState: GridState | undefined;
   readonly gridOptions: GridOptions<SalesInvoice> = {
+    rowSelection: 'multiple',
+    suppressRowClickSelection: true,
+    getRowId: (params) => String(params.data.id),
+    onSelectionChanged: (event) => {
+      this.selectedInvoiceIDs = event.api.getSelectedRows().map(inv => inv.id!).filter(id => id > 0);
+    },
+    onFirstDataRendered: (event) => {
+      this.selectedInvoiceIDs = event.api.getSelectedRows().map(inv => inv.id!).filter(id => id > 0);
+    },
     // Angular destroys the grid on tab changes and while refreshing invoices.
     // Register here so the state is captured before Angular tears it down.
     onGridPreDestroyed: (event) => { this.gridState = event.state; }
@@ -112,6 +123,12 @@ export class ListComponent implements OnInit {
 
   // AG Grid Column Definitions
   public columnDefs: ColDef[] = [
+    {
+      colId: 'selection', headerName: '', width: 50, pinned: 'left', lockPinned: true,
+      checkboxSelection: true, headerCheckboxSelection: true,
+      headerCheckboxSelectionFilteredOnly: true, sortable: false, filter: false,
+      resizable: false
+    },
     {
       field: 'invoice_number', headerName: 'Invoice #', flex: 1, minWidth: 170,
       pinned: 'left', lockPinned: true,
@@ -397,6 +414,29 @@ export class ListComponent implements OnInit {
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       },
       error: () => alert('Could not generate the invoice PDF. Please try again.')
+    });
+  }
+
+  downloadSelectedPDFs() {
+    if (this.isDownloading || this.selectedInvoiceIDs.length === 0) return;
+    if (this.selectedInvoiceIDs.length > 100) { alert('Please select at most 100 invoices per download.'); return; }
+    this.isDownloading = true;
+    this.api.downloadSalesInvoicesZIP([...this.selectedInvoiceIDs]).subscribe({
+      next: (zip) => {
+        const url = URL.createObjectURL(zip);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'Invoices.zip';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        this.isDownloading = false;
+      },
+      error: () => {
+        this.isDownloading = false;
+        alert('Could not download the selected invoices. Please try again.');
+      }
     });
   }
 }

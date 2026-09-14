@@ -1,6 +1,10 @@
 package handlers
 
 import (
+	"archive/zip"
+	"bytes"
+	"fmt"
+	"io"
 	"net/http/httptest"
 	"path/filepath"
 	"strconv"
@@ -35,6 +39,83 @@ func TestDownloadSalesInvoicePDF(t *testing.T) {
 		t.Fatal(err)
 	}
 	srv := NewServer(db)
+	t.Run("bulk download", func(t *testing.T) {
+		secondPartner, err := core.CreateBusinessPartner(db, core.BusinessPartner{Name: "Second customer", BillingAddress: "Second address"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		secondBP, err := core.GetBusinessPartnerByID(db, int(secondPartner))
+		if err != nil {
+			t.Fatal(err)
+		}
+		secondID, err := core.CreateSalesInvoice(db, core.SalesInvoice{BusinessPartnerID: int(secondPartner), AddressID: &secondBP.Addresses[0].ID, InvoiceDate: "2026-09-13", Currency: "USD", LineItems: []core.InvoiceLineItem{{Description: "Second invoice", Quantity: 1, Rate: 50, Amount: 50}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, tc := range []struct {
+			body   string
+			status int
+			count  int
+		}{
+			{fmt.Sprintf(`{"ids":[%d,%d,%d]}`, id, secondID, id), 200, 2},
+			{`{"ids":[]}`, 400, 0},
+			{`{"ids":[0]}`, 400, 0},
+			{`{"ids":["bad"]}`, 400, 0},
+			{`{"ids":[1]} {}`, 400, 0},
+			{`{"ids":[` + strings.Repeat("1,", 100) + `1]}`, 400, 0},
+			{fmt.Sprintf(`{"ids":[%d,999999]}`, id), 404, 0},
+		} {
+			w := httptest.NewRecorder()
+			srv.DownloadSalesInvoicesZIP(w, httptest.NewRequest("POST", "/api/sales-invoices/pdf-download", strings.NewReader(tc.body)))
+			if w.Code != tc.status {
+				t.Fatalf("%s: %d %s", tc.body, w.Code, w.Body.String())
+			}
+			if tc.status != 200 {
+				if strings.HasPrefix(w.Body.String(), "PK") {
+					t.Fatal("partial ZIP returned")
+				}
+				continue
+			}
+			if w.Header().Get("Content-Type") != "application/zip" {
+				t.Fatal(w.Header())
+			}
+			archive, err := zip.NewReader(bytes.NewReader(w.Body.Bytes()), int64(w.Body.Len()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(archive.File) != tc.count {
+				t.Fatalf("got %d entries", len(archive.File))
+			}
+			for i, file := range archive.File {
+				if strings.ContainsAny(file.Name, `/\`) {
+					t.Fatal(file.Name)
+				}
+				reader, err := file.Open()
+				if err != nil {
+					t.Fatal(err)
+				}
+				data, err := io.ReadAll(reader)
+				reader.Close()
+				if err != nil {
+					t.Fatal(err)
+				}
+				doc, err := gxpdf.OpenFromBytes(data)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if doc.PageCount() != 2 || !strings.Contains(doc.Page(1).ExtractText(), "HDFCINBBDEL") {
+					t.Fatal("missing invoice or annexure")
+				}
+				if i == 0 && !strings.Contains(doc.Page(0).ExtractText(), "Saved project") {
+					t.Fatal("wrong first invoice")
+				}
+				if i == 1 && !strings.Contains(doc.Page(0).ExtractText(), "Second invoice") {
+					t.Fatal("wrong second invoice")
+				}
+				doc.Close()
+			}
+		}
+	})
 	for _, tc := range []struct {
 		id     string
 		status int

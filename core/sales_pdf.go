@@ -31,10 +31,10 @@ func SalesInvoicePDF(inv SalesInvoice, company CompanyProfile, contact BusinessP
 	doc.Page(func(p *builder.PageBuilder) {
 		invoiceLetterhead(p)
 		p.Content(func(c *builder.Container) {
-			c.Text("TAX INVOICE", builder.Bold(), builder.FontSize(16))
+			c.Text("Invoice: "+inv.InvoiceNumber, builder.Bold(), builder.FontSize(16))
 			c.Spacer(builder.Mm(4))
 			c.Row(func(r *builder.RowBuilder) {
-				r.Col(6, func(col *builder.ColBuilder) {
+				r.Col(7, func(col *builder.ColBuilder) {
 					col.Text("Billed To", builder.Bold())
 					text(&col.Container, inv.BusinessPartnerName)
 					text(&col.Container, inv.BillingAddress)
@@ -42,7 +42,7 @@ func SalesInvoicePDF(inv SalesInvoice, company CompanyProfile, contact BusinessP
 					text(&col.Container, strings.TrimSpace(contact.Email+" "+contact.Phone))
 					field(&col.Container, "Buyer GSTIN", inv.BuyerGSTIN)
 				})
-				r.Col(6, func(col *builder.ColBuilder) {
+				r.Col(5, func(col *builder.ColBuilder) {
 					col.Text("From", builder.Bold())
 					text(&col.Container, company.CompanyName)
 					text(&col.Container, company.Address)
@@ -122,21 +122,35 @@ func SalesInvoicePDF(inv SalesInvoice, company CompanyProfile, contact BusinessP
 		p.Content(func(c *builder.Container) {
 			c.Text("ANNEXURE - I: BENEFICIARY ACCOUNT INFORMATION", builder.Bold(), builder.FontSize(14))
 			c.Spacer(builder.Mm(12))
-			c.Text("Beneficiary:", builder.Bold(), builder.FontSize(12))
-			c.Spacer(builder.Mm(5))
-			field(c, "Account Name", "SELECT Q")
-			field(c, "Account Number", "50200020525472")
-			field(c, "Account Address", "RITU GANDHI\nC/O SELECT Q\nHOUSE NO 189, SECTOR 31\nFARIDABAD, AMARNAGAR")
-			c.Spacer(builder.Mm(12))
-			c.Text("Beneficiary Bank Details", builder.Bold(), builder.FontSize(12))
-			c.Spacer(builder.Mm(5))
-			field(c, "Beneficiary Bank Name", "HDFC Bank Ltd")
-			field(c, "Swift Code", "HDFCINBBDEL")
-			field(c, "Bank / Branch Address", "HDFC BANK, SECTOR 31, FARIDABAD")
-			field(c, "CITY", "FARIDABAD")
-			field(c, "STATE", "HARYANA")
-			field(c, "ZIP", "121003")
-			field(c, "COUNTRY", "INDIA")
+			c.Table(func(t *builder.TableBuilder) {
+				t.Columns(builder.Fr(1), builder.Fr(2))
+				rows := []struct {
+					label, value string
+					heading      bool
+				}{
+					{"Beneficiary:", "", true},
+					{"Account Name", "SELECT Q", false},
+					{"Account Number", "50200020525472", false},
+					{"Account Address", "RITU GANDHI\nC/O SELECT Q\nHOUSE NO 189, SECTOR 31\nFARIDABAD, AMARNAGAR", false},
+					{"Beneficiary Bank Details", "", true},
+					{"Beneficiary Bank Name", "HDFC Bank Ltd", false},
+					{"Swift Code", "HDFCINBBDEL", false},
+					{"Bank / Branch Address", "HDFC BANK, SECTOR 31, FARIDABAD\nCITY: FARIDABAD\nSTATE: HARYANA\nZIP: 121003\nCOUNTRY: INDIA", false},
+				}
+				for _, row := range rows {
+					t.Row(func(r *builder.TableRowBuilder) {
+						for _, value := range []string{row.label, row.value} {
+							r.Cell(func(cell *builder.CellBuilder) {
+								if row.heading {
+									cell.Text(value, builder.Bold())
+								} else {
+									text(&cell.Container, value)
+								}
+							}, builder.CellPadding(builder.Mm(2)), builder.CellBorder(builder.Hex("cccccc"), 0.5))
+						}
+					})
+				}
+			})
 		})
 	})
 	return doc.Build()
