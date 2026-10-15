@@ -18,7 +18,29 @@ Register this exact authorized redirect URI for local use:
 
 `http://localhost:8080/auth/google/callback`
 
-For production, register `https://YOUR-DOMAIN/auth/google/callback` and use that HTTPS origin below. Supply environment variables to the Go server, never to Angular or source control:
+For production, register `https://YOUR-DOMAIN/auth/google/callback` and use that HTTPS origin below.
+
+### Local JSON configuration
+
+Copy `auth.config.example.json` to `auth.config.json` in the project root and fill in your Google client ID and secret:
+
+```json
+{
+  "app_origin": "http://localhost:8080",
+  "google_client_id": "YOUR_CLIENT_ID.apps.googleusercontent.com",
+  "google_client_secret": "YOUR_CLIENT_SECRET",
+  "allowed_emails": ["ritugandhi@selectq.in"],
+  "allowed_domains": []
+}
+```
+
+The Go server parses this file **at startup**, including when started with `go run .` or the compiled executable. Credentials are not embedded during the build or included in Angular assets. Start the server from the project root, or set `AUTH_CONFIG_FILE` to an absolute path for another file location. Keep the file outside `frontend/src/assets` and the public build directory. The default `auth.config.json` is excluded from Git; the example contains no credentials.
+
+The callback URL is derived from `app_origin` by adding `/auth/google/callback`; it does not need its own JSON field. Changing the JSON requires a server restart, not a rebuild. A missing default file falls back to environment variables and defaults. An explicitly selected missing file or invalid JSON stops startup. Only the fields shown above are accepted.
+
+### Environment overrides
+
+Explicitly set environment variables override the corresponding JSON values, including empty values. You can also use these without a JSON file:
 
 ```powershell
 $env:APP_ORIGIN = 'http://localhost:8080'
@@ -28,9 +50,9 @@ $env:AUTH_ALLOWED_EMAILS = 'ritugandhi@selectq.in'
 go run .
 ```
 
-Build the frontend first with `npm.cmd run build` in `frontend`, then open `http://localhost:8080`. The server reads environment variables directly; it does not load `.env` files. Restart after changing configuration. For frontend development, run `npm.cmd start` in `frontend`, use `http://localhost:4200` as APP_ORIGIN, and register its `/auth/google/callback` URI. The development proxy forwards `/api` and `/auth` to port 8080.
+Build the frontend first with `npm.cmd run build` in `frontend`, then open `http://localhost:8080`. The server supports JSON and environment variables; it does not load `.env` files. Restart after changing configuration. For frontend development, run `npm.cmd start` in `frontend`, use `http://localhost:4200` as `app_origin` or APP_ORIGIN, and register its `/auth/google/callback` URI. The development proxy forwards `/api` and `/auth` to port 8080.
 
-The default allowed account is **ritugandhi@selectq.in** when `AUTH_ALLOWED_EMAILS` is unset. An explicit comma-separated email list replaces the default. `AUTH_ALLOWED_DOMAINS` optionally allows entire Google Workspace domains; it is empty by default. Domain admission uses Google's verified `hd` claim, not the email suffix. An explicitly empty email list and no domains deny all access.
+The default allowed account is **ritugandhi@selectq.in** when neither JSON `allowed_emails` nor `AUTH_ALLOWED_EMAILS` is supplied. JSON arrays or comma-separated environment values replace the defaults. `allowed_domains` / `AUTH_ALLOWED_DOMAINS` optionally allow entire Google Workspace domains; they are empty by default. Domain admission uses Google's verified `hd` claim, not the email suffix. An explicitly empty email list and no domains deny all access.
 
 Without client credentials or any allowed accounts/domains, sign-in shows a setup message and all accounting APIs deny access. There is no development authentication bypass.
 

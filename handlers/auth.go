@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -46,11 +45,11 @@ type loginAttempt struct {
 }
 
 func NewAuthFromEnv() (*Auth, error) {
-	allowedEmails := os.Getenv("AUTH_ALLOWED_EMAILS")
-	if _, set := os.LookupEnv("AUTH_ALLOWED_EMAILS"); !set {
-		allowedEmails = "ritugandhi@selectq.in"
+	cfg, err := loadAuthConfig()
+	if err != nil {
+		return nil, err
 	}
-	origin := strings.TrimRight(os.Getenv("APP_ORIGIN"), "/")
+	origin := strings.TrimRight(cfg.Origin, "/")
 	if origin == "" {
 		origin = "http://localhost:8080"
 	}
@@ -59,8 +58,8 @@ func NewAuthFromEnv() (*Auth, error) {
 		(u.Scheme != "https" && !(u.Scheme == "http" && (u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1"))) {
 		return nil, fmt.Errorf("APP_ORIGIN must be an HTTPS origin (HTTP is allowed only for localhost)")
 	}
-	return &Auth{clientID: os.Getenv("GOOGLE_CLIENT_ID"), clientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"), origin: origin,
-		emails: authSet(allowedEmails), domains: authSet(os.Getenv("AUTH_ALLOWED_DOMAINS")),
+	return &Auth{clientID: cfg.ClientID, clientSecret: cfg.ClientSecret, origin: origin,
+		emails: authSet(strings.Join(cfg.AllowedEmails, ",")), domains: authSet(strings.Join(cfg.AllowedDomains, ",")),
 		client: &http.Client{Timeout: 15 * time.Second}, sessions: make(map[string]authSession), pending: make(map[string]loginAttempt)}, nil
 }
 

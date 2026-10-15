@@ -14,6 +14,7 @@ import (
 
 func testAuth(t *testing.T) *Auth {
 	t.Helper()
+	cleanAuthConfig(t)
 	t.Setenv("APP_ORIGIN", "https://studio.example")
 	t.Setenv("GOOGLE_CLIENT_ID", "test-client")
 	t.Setenv("GOOGLE_CLIENT_SECRET", "test-secret")
