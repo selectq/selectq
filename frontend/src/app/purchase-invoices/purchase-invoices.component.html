@@ -9,14 +9,19 @@
 <p *ngIf="loading" role="status">Loading purchase invoices...</p>
 <p *ngIf="error" class="error" role="alert">{{ error }}</p><p *ngIf="message" role="status">{{ message }}</p>
 <section class="glass-card" *ngIf="sourceTransactionId">
-<h3>Link an existing purchase invoice</h3>
-<p>Withdrawal #{{ sourceTransactionId }}: {{ source }}. Choose an invoice already in the register, or complete the new invoice form below.</p>
-<label>Available invoices<select [(ngModel)]="selectedInvoiceId" [disabled]="saving">
-<option [ngValue]="null">Select a purchase invoice</option>
-<option *ngFor="let existing of unlinkedInvoices" [ngValue]="existing.id">{{ existing.invoice_number || 'Invoice #' + existing.id }} — {{ existing.party_name }} — {{ existing.invoice_date }} — INR {{ existing.total_amount | number:'1.2-2' }}</option>
-</select></label>
-<p *ngIf="!unlinkedInvoices.length">No unlinked purchase invoices are available. Register a new invoice below.</p>
-<button class="btn-primary" (click)="linkExisting()" [disabled]="saving || !selectedInvoiceId">{{ saving ? 'Saving...' : 'Link selected invoice' }}</button>
+<h3>Allocate withdrawal to purchase invoices</h3>
+<p>Withdrawal #{{ sourceTransactionId }}: {{ source }} / INR {{ withdrawalAmount | number:'1.2-2' }}.</p>
+<p>Enter the INR amount paid against each invoice. You can pay several invoices or make a partial payment. Set an amount to zero to remove its link.</p>
+<div class="payment-table"><table>
+<thead><tr><th>Invoice</th><th>Supplier</th><th>Available to pay (INR)</th><th>This withdrawal (INR)</th></tr></thead>
+<tbody><tr *ngFor="let invoice of paymentInvoices">
+<td>{{ invoice.invoice_number || 'Invoice #' + invoice.id }}</td><td>{{ invoice.party_name }}</td>
+<td>{{ invoiceAvailable(invoice) | number:'1.2-2' }}</td>
+<td><input type="number" min="0" step="0.01" [max]="invoiceAvailable(invoice)" [attr.aria-label]="'Payment for ' + (invoice.invoice_number || invoice.id)" [(ngModel)]="paymentAmounts[invoice.id!]" [disabled]="saving" /></td>
+</tr></tbody></table></div>
+<p *ngIf="!paymentInvoices.length">No outstanding invoices. Register a new invoice below.</p>
+<p>Allocated: INR {{ paymentTotal | number:'1.2-2' }} / Unallocated: INR {{ withdrawalAmount - paymentTotal | number:'1.2-2' }}</p>
+<button class="btn-primary" (click)="savePaymentAllocations()" [disabled]="saving || parsing">{{ saving ? 'Saving...' : 'Save allocations' }}</button>
 </section>
 <section id="purchase-invoice-editor" class="glass-card" *ngIf="draft as invoice">
 <h3>{{ invoice.id ? 'Edit purchase invoice' : 'New purchase invoice' }}</h3>

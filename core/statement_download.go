@@ -53,7 +53,7 @@ func StatementDownload(db *sql.DB, importID int, originalDir string) ([]byte, st
 	}
 	for i, txn := range txns {
 		if txn.PurchaseInvoiceID != nil {
-			if err := db.QueryRow(`SELECT invoice_number FROM purchase_invoices WHERE id=?`, *txn.PurchaseInvoiceID).Scan(&txns[i].InvoiceNumber); err != nil {
+			if err := db.QueryRow(`SELECT COALESCE(group_concat(invoice_number, ', '),'') FROM (SELECT p.invoice_number FROM purchase_invoices p WHERE p.bank_transaction_id=? OR EXISTS(SELECT 1 FROM purchase_allocations a WHERE a.purchase_invoice_id=p.id AND a.bank_transaction_id=?) ORDER BY p.id)`, txn.ID, txn.ID).Scan(&txns[i].InvoiceNumber); err != nil {
 				return nil, "", err
 			}
 		} else if strings.EqualFold(strings.TrimSpace(txn.AccountHead), "Sales Invoice") || len(txn.Allocations) > 0 {

@@ -23,7 +23,7 @@ export class PurchaseInvoicesComponent implements OnInit, OnDestroy {
   this.requests.add(this.api.parsePurchaseInvoice(file).subscribe({
    next: invoice => {
     this.parsing = false; this.add();
-    this.draft = { ...invoice, id: undefined, bank_transaction_id: this.sourceTransactionId, file_name: '' };
+    this.draft = { ...invoice, id: undefined, bank_transaction_id: null, file_name: '' };
     this.file = file;
     this.message = 'Invoice details extracted. Review the fields and save to register this invoice with its PDF.';
    },
@@ -39,6 +39,8 @@ export class PurchaseInvoicesComponent implements OnInit, OnDestroy {
   { field: 'party_name', headerName: 'Party Name', minWidth: 190, flex: 1 },
   { field: 'party_address', headerName: 'Party Address', minWidth: 230, flex: 2, wrapText: true, autoHeight: true, cellStyle: { whiteSpace: 'pre-wrap', lineHeight: '1.5', paddingTop: '8px', paddingBottom: '8px' } },
   { field: 'party_gstin', headerName: 'Party GSTIN', width: 185 },
+  { field: 'paid_amount', headerName: 'Paid (INR)', width: 140, filter: 'agNumberColumnFilter' },
+  { field: 'outstanding_amount', headerName: 'Outstanding (INR)', width: 170, filter: 'agNumberColumnFilter' },
   { field: 'total_amount', headerName: 'Total Invoice Amount (INR)', width: 185, filter: 'agNumberColumnFilter', cellStyle: { textAlign: 'right' },
     valueFormatter: p => p.value == null ? '' : Number(p.value).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}) },
   { colId: 'documents', headerName: 'Invoice Document', width: 230, autoHeight: true, sortable: false, filter: false,
@@ -93,6 +95,31 @@ export class PurchaseInvoicesComponent implements OnInit, OnDestroy {
   });
  }
  sourceTransactionId: number | null = null;
+ withdrawalAmount = 0;
+ paymentAmounts: Record<number, number> = {};
+ get paymentTotal() { return Math.round(Object.values(this.paymentAmounts).reduce((sum, amount) => sum + Number(amount || 0), 0) * 100) / 100; }
+ get paymentInvoices() { return this.invoices.filter(i => (i.outstanding_amount ?? i.total_amount) > 0 || i.payments?.some(p => p.bank_transaction_id === this.sourceTransactionId)); }
+ invoiceAvailable(invoice: PurchaseInvoice) { return Math.round(((invoice.outstanding_amount ?? invoice.total_amount) + (invoice.payments?.find(p => p.bank_transaction_id === this.sourceTransactionId)?.amount || 0)) * 100) / 100; }
+ loadPaymentAmounts() {
+  this.paymentAmounts = {};
+  for (const invoice of this.invoices) {
+   const payment = invoice.payments?.find(p => p.bank_transaction_id === this.sourceTransactionId);
+   if (payment && invoice.id) this.paymentAmounts[invoice.id] = payment.amount;
+  }
+ }
+ savePaymentAllocations() {
+  if (!this.sourceTransactionId || this.saving || this.parsing) return;
+  if (Object.values(this.paymentAmounts).some(v => !Number.isFinite(Number(v)) || Number(v) < 0)) { this.error = 'Enter non-negative allocation amounts.'; return; }
+  const allocations = Object.entries(this.paymentAmounts).filter(([, amount]) => Number(amount) > 0).map(([id, amount]) => ({ purchase_invoice_id: Number(id), amount: Number(amount) }));
+  this.saving = true; this.error = ''; this.message = '';
+  this.requests.add(this.api.allocatePurchasePayment(this.sourceTransactionId, allocations).subscribe({
+   next: () => {
+    this.requests.add(this.api.getPurchaseInvoices().subscribe({ next: rows => {
+     this.invoices = rows; this.loadPaymentAmounts(); this.saving = false; this.message = 'Purchase allocations saved.';
+    }, error: () => { this.saving = false; this.error = 'Allocations saved, but balances could not be refreshed. Reload the page.'; } }));
+   }, error: err => { this.saving = false; this.error = typeof err.error === 'string' ? err.error : 'Could not save purchase allocations.'; }
+  }));
+ }
  selectedInvoiceId: number | null = null;
  get unlinkedInvoices() { return this.invoices.filter(i => i.bank_transaction_id == null); }
  linkExisting() {
@@ -127,7 +154,7 @@ export class PurchaseInvoicesComponent implements OnInit, OnDestroy {
     transactions: transactionId && this.importId ? this.api.getTransactions(this.importId) : of([])
   }).subscribe({ next: ({ invoices, transactions }) => {
    this.invoices = invoices; this.loading = false;
-   const existing = invoices.find(p => id ? p.id === id : transactionId > 0 && p.bank_transaction_id === transactionId);
+   const existing = id ? invoices.find(p => p.id === id) : undefined;
    if (existing) { this.edit(existing); return; }
    if (transactionId) {
     const txn = (transactions || []).find(t => t.id === transactionId);
@@ -138,8 +165,10 @@ export class PurchaseInvoicesComponent implements OnInit, OnDestroy {
      this.error = 'This transaction is not eligible for purchase registration.'; return;
     }
     this.sourceTransactionId = txn.id;
+    this.withdrawalAmount = txn.withdrawal_amt;
+    this.loadPaymentAmounts();
     this.add();
-    this.draft!.bank_transaction_id = txn.id;
+    this.draft!.bank_transaction_id = null;
     this.draft!.total_amount = txn.withdrawal_amt;
     this.draft!.party_name = txn.business_partner_name || '';
     this.source = txn.narration;
@@ -151,7 +180,7 @@ export class PurchaseInvoicesComponent implements OnInit, OnDestroy {
  ngOnDestroy() { this.themeObserver?.disconnect(); this.partyLookup?.unsubscribe(); this.requests.unsubscribe(); }
  add() {
   this.partyLookup?.unsubscribe(); this.partyLookupMessage = '';
-  this.draft = { invoice_number: '', invoice_date: '', party_name: '', party_address: '', party_gstin: '', total_amount: 0, file_name: '', bank_transaction_id: this.sourceTransactionId };
+  this.draft = { invoice_number: '', invoice_date: '', party_name: '', party_address: '', party_gstin: '', total_amount: 0, file_name: '', bank_transaction_id: null };
   this.file = null; this.source = ''; this.error = ''; this.message = '';
  }
  edit(invoice: PurchaseInvoice) { this.partyLookup?.unsubscribe(); this.partyLookupMessage = ''; this.draft = { ...invoice }; this.file = null; this.source = ''; this.error = ''; this.message = ''; }
@@ -164,7 +193,7 @@ export class PurchaseInvoicesComponent implements OnInit, OnDestroy {
   if (!this.draft || this.saving || this.parsing) return;
   this.saving = true; this.error = ''; this.message = '';
   this.requests.add(this.api.savePurchaseInvoice(this.draft, this.file).subscribe({ next: saved => {
-   this.saving = false; this.draft = null; this.file = null; this.message = 'Purchase invoice saved.'; this.sourceTransactionId = null; this.selectedInvoiceId = null;
+   this.saving = false; this.draft = null; this.file = null; this.message = this.sourceTransactionId ? 'Purchase invoice saved. Enter its payment amount above and save allocations.' : 'Purchase invoice saved.'; this.selectedInvoiceId = null;
    this.requests.add(this.api.getPurchaseInvoices().subscribe({ next: rows => this.invoices = rows,
     error: () => this.error = 'Invoice saved, but the register could not be refreshed. Reload the page.' }));
   }, error: err => { this.saving = false; this.error = typeof err.error === 'string' ? err.error : 'Could not save purchase invoice.'; } }));

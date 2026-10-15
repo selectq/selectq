@@ -119,7 +119,7 @@ describe('Transaction invoice action routing', () => {
     const txn = { id: 12, withdrawal_amt: 100, deposit_amt: 0, account_head: 'Software/Services', invoice_number: '' } as BankTransaction;
     const click = (data: BankTransaction) => component.onCellClicked({ colDef: { field: 'invoice_number' }, data } as any);
     click(txn);
-    expect(router.navigate).toHaveBeenCalledWith(['/purchase-invoices'], { queryParams: { transaction_id: 12, import_id: 3, id: undefined } });
+    expect(router.navigate).toHaveBeenCalledWith(['/purchase-invoices'], { queryParams: { transaction_id: 12, import_id: 3 } });
     expect(api.getSalesInvoices).not.toHaveBeenCalled();
     router.navigate.calls.reset();
     for (const account_head of ['Salary', 'To Personal', 'Personal', 'Sales Invoice']) click({ ...txn, account_head });
@@ -130,6 +130,6 @@ describe('Transaction invoice action routing', () => {
     click({ ...txn, account_head: 'Sales Invoice', withdrawal_amt: 0, deposit_amt: 100 });
     expect(api.getSalesInvoices).toHaveBeenCalledTimes(1);
     click({ ...txn, purchase_invoice_id: 7 });
-    expect(router.navigate).toHaveBeenCalledWith(['/purchase-invoices'], { queryParams: { transaction_id: 12, import_id: 3, id: 7 } });
+    expect(router.navigate).toHaveBeenCalledWith(['/purchase-invoices'], { queryParams: { transaction_id: 12, import_id: 3 } });
   });
 });

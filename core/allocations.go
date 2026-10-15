@@ -115,6 +115,13 @@ func AllocateTransaction(db *sql.DB, id int, head, sub, legacy string, partner *
 		return err
 	}
 	old := map[int]float64{}
+	var purchases int
+	if err = tx.QueryRow(`SELECT count(*) FROM purchase_allocations WHERE bank_transaction_id=?`, id).Scan(&purchases); err != nil {
+		return err
+	}
+	if purchases > 0 && (!PurchaseEligible(withdrawal, head, sub, legacy) || deposit > 0 || len(allocations) > 0) {
+		return fmt.Errorf("Remove purchase allocations before changing this withdrawal to an incompatible classification")
+	}
 	rows, err := tx.Query(`SELECT sales_invoice_id,amount FROM invoice_allocations WHERE bank_transaction_id=?`, id)
 	if err != nil {
 		return err

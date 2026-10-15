@@ -23,7 +23,7 @@ export class TransactionsComponent implements OnInit, AfterViewChecked {
       if (txn.purchase_invoice_id || this.canRegisterPurchase(txn)) {
         this.selected = null;
         this.router.navigate(['/purchase-invoices'], { queryParams: {
-          transaction_id: txn.id, import_id: this.importId, id: txn.purchase_invoice_id || undefined
+          transaction_id: txn.id, import_id: this.importId
         } });
       } else if (this.canAllocateSales(txn)) this.openAllocation(txn);
     }
@@ -38,7 +38,7 @@ export class TransactionsComponent implements OnInit, AfterViewChecked {
     return head !== 'sales invoice' && !/salary|personal/.test(`${head} ${txn.sub_account_head || ''}`.toLowerCase());
   }
   invoiceActionLabel(txn?: BankTransaction): string {
-    if (txn?.purchase_invoice_id) return 'View purchase invoice';
+    if (txn?.purchase_invoice_id) return 'Manage purchase allocations';
     if (this.canRegisterPurchase(txn)) return 'Register purchase invoice...';
     if (this.canAllocateSales(txn)) return txn?.invoice_number || 'Allocate sales invoices...';
     return txn?.invoice_number || '';

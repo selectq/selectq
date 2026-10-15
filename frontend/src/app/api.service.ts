@@ -35,6 +35,9 @@ export interface BankTransaction {
 }
 
 export interface PurchaseInvoice {
+  paid_amount?: number;
+  outstanding_amount?: number;
+  payments?: { bank_transaction_id: number; purchase_invoice_id: number; amount: number }[];
   external_url?: string;
   id?: number; bank_transaction_id: number | null; invoice_number: string; invoice_date: string;
   party_name: string; party_address: string; party_gstin: string; total_amount: number; file_name: string;
@@ -161,6 +164,9 @@ export class ApiService {
 
   linkPurchaseInvoice(id: number, transactionId: number): Observable<any> {
     return this.http.post(`${this.baseUrl}/purchase-invoices/${id}/link`, { bank_transaction_id: transactionId });
+  }
+  allocatePurchasePayment(id: number, allocations: { purchase_invoice_id: number; amount: number }[]): Observable<any> {
+    return this.http.put(`${this.baseUrl}/transactions/${id}/purchase-allocations`, { allocations });
   }
   getPurchaseParty(gstin: string): Observable<{ gstin: string; party_name: string; party_address: string }> {
     return this.http.get<{ gstin: string; party_name: string; party_address: string }>(`${this.baseUrl}/purchase-parties`, { params: { gstin } });

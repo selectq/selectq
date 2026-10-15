@@ -310,7 +310,7 @@ func GetTransactions(db *sql.DB, importID int) ([]BankTransaction, error) {
 	rows, err := db.Query(`
 		SELECT t.id, t.txn_date, t.narration, t.chq_ref_no, t.value_date, t.withdrawal_amt, t.deposit_amt, t.closing_balance,
 		       t.account_head, t.sub_account_head, t.invoice_number, t.business_partner_id, bp.name, t.currency, t.exchange_rate, t.forex_amount,
-               (SELECT p.id FROM purchase_invoices p WHERE p.bank_transaction_id=t.id)
+               COALESCE((SELECT a.purchase_invoice_id FROM purchase_allocations a WHERE a.bank_transaction_id=t.id ORDER BY a.purchase_invoice_id LIMIT 1), (SELECT p.id FROM purchase_invoices p WHERE p.bank_transaction_id=t.id))
 		FROM bank_transactions t
 		LEFT JOIN business_partners bp ON t.business_partner_id = bp.id
 		WHERE t.import_id = ?

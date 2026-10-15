@@ -59,6 +59,7 @@ func TestStatementDownload(t *testing.T) {
 		INSERT INTO purchase_invoices(bank_transaction_id,invoice_number,invoice_date,party_name,party_address,total_amount) VALUES(2,'PUR-12','2026-09-02','Vendor','Address',20)`); err != nil {
 		t.Fatal(err)
 	}
+	purchaseReferences := "PUR-12"
 	check := func(data []byte) {
 		t.Helper()
 		out, err := excelize.OpenReader(bytes.NewReader(data))
@@ -68,7 +69,7 @@ func TestStatementDownload(t *testing.T) {
 		defer out.Close()
 		for cell, want := range map[string]string{
 			"A1": "Original bank letterhead", "C23": "0000123", "H21": "Account Head", "I21": "Sub Account Head", "J21": "Invoice",
-			"H23": "Sales Invoice", "I23": "Studio South Design", "J23": "001/2026-2027, 002/2026-2027", "H24": "", "H25": "Expense", "J25": "PUR-12",
+			"H23": "Sales Invoice", "I23": "Studio South Design", "J23": "001/2026-2027, 002/2026-2027", "H24": "", "H25": "Expense", "J25": purchaseReferences,
 			"A26": "*** End of statement ***", "K28": "Original footer at right",
 		} {
 			got, err := out.GetCellValue(sheet, cell)
@@ -95,6 +96,19 @@ func TestStatementDownload(t *testing.T) {
 	}
 	if filename != "bank-classified.xlsx" {
 		t.Fatal(filename)
+	}
+	check(data)
+	secondInvoice := PurchaseInvoice{InvoiceNumber: "PUR-13", InvoiceDate: "2026-09-02", PartyName: "Vendor", PartyAddress: "Address", TotalAmount: 10}
+	if err := SavePurchaseInvoice(db, &secondInvoice); err != nil {
+		t.Fatal(err)
+	}
+	if err := AllocatePurchasePayment(db, 2, []PurchaseAllocation{{PurchaseInvoiceID: 1, Amount: 10}, {PurchaseInvoiceID: secondInvoice.ID, Amount: 10}}); err != nil {
+		t.Fatal(err)
+	}
+	purchaseReferences = "PUR-12, PUR-13"
+	data, _, err = StatementDownload(db, 1, dir)
+	if err != nil {
+		t.Fatal(err)
 	}
 	check(data)
 	var retained []byte

@@ -10,18 +10,21 @@ import (
 )
 
 type PurchaseInvoice struct {
-	ExternalURL       string  `json:"external_url"`
-	ID                int     `json:"id"`
-	BankTransactionID *int    `json:"bank_transaction_id"`
-	InvoiceNumber     string  `json:"invoice_number"`
-	InvoiceDate       string  `json:"invoice_date"`
-	PartyName         string  `json:"party_name"`
-	PartyAddress      string  `json:"party_address"`
-	PartyGSTIN        string  `json:"party_gstin"`
-	TotalAmount       float64 `json:"total_amount"`
-	FileName          string  `json:"file_name"`
-	FileType          string  `json:"-"`
-	FileData          []byte  `json:"-"`
+	PaidAmount        float64              `json:"paid_amount"`
+	OutstandingAmount float64              `json:"outstanding_amount"`
+	Payments          []PurchaseAllocation `json:"payments"`
+	ExternalURL       string               `json:"external_url"`
+	ID                int                  `json:"id"`
+	BankTransactionID *int                 `json:"bank_transaction_id"`
+	InvoiceNumber     string               `json:"invoice_number"`
+	InvoiceDate       string               `json:"invoice_date"`
+	PartyName         string               `json:"party_name"`
+	PartyAddress      string               `json:"party_address"`
+	PartyGSTIN        string               `json:"party_gstin"`
+	TotalAmount       float64              `json:"total_amount"`
+	FileName          string               `json:"file_name"`
+	FileType          string               `json:"-"`
+	FileData          []byte               `json:"-"`
 }
 
 func initPurchaseInvoices(db *sql.DB) error {
@@ -56,6 +59,9 @@ func initPurchaseInvoices(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	if err = initPurchaseAllocations(tx); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 
@@ -80,7 +86,32 @@ func GetPurchaseInvoices(db *sql.DB) ([]PurchaseInvoice, error) {
 		}
 		result = append(result, p)
 	}
-	return result, rows.Err()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	payments, err := db.Query(`SELECT bank_transaction_id,purchase_invoice_id,amount FROM purchase_allocations ORDER BY bank_transaction_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer payments.Close()
+	for payments.Next() {
+		var a PurchaseAllocation
+		if err = payments.Scan(&a.BankTransactionID, &a.PurchaseInvoiceID, &a.Amount); err != nil {
+			return nil, err
+		}
+		for i := range result {
+			if result[i].ID == a.PurchaseInvoiceID {
+				result[i].Payments = append(result[i].Payments, a)
+				result[i].PaidAmount += a.Amount
+			}
+		}
+	}
+	for i := range result {
+		result[i].PaidAmount = money(result[i].PaidAmount)
+		result[i].OutstandingAmount = money(math.Max(0, result[i].TotalAmount-result[i].PaidAmount))
+	}
+	return result, payments.Err()
 }
 
 func SavePurchaseInvoice(db *sql.DB, p *PurchaseInvoice) error {
@@ -115,6 +146,13 @@ func SavePurchaseInvoice(db *sql.DB, p *PurchaseInvoice) error {
 	}
 	defer tx.Rollback()
 	if p.ID > 0 {
+		var paid float64
+		if err = tx.QueryRow(`SELECT COALESCE(SUM(amount),0) FROM purchase_allocations WHERE purchase_invoice_id=?`, p.ID).Scan(&paid); err != nil {
+			return err
+		}
+		if money(paid) > p.TotalAmount {
+			return fmt.Errorf("Invoice total cannot be less than allocated payments")
+		}
 		var linked *int
 		if err = tx.QueryRow(`SELECT bank_transaction_id FROM purchase_invoices WHERE id=?`, p.ID).Scan(&linked); err != nil {
 			return err
@@ -172,6 +210,11 @@ func SavePurchaseInvoice(db *sql.DB, p *PurchaseInvoice) error {
 			return err
 		}
 	}
+	if p.BankTransactionID != nil {
+		if err = allocateLegacyPurchase(tx, p.ID, *p.BankTransactionID); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
 }
 
@@ -211,6 +254,9 @@ func LinkPurchaseInvoice(db *sql.DB, invoiceID, transactionID int) error {
 		return fmt.Errorf("This withdrawal already has a purchase invoice")
 	}
 	if _, err = tx.Exec(`UPDATE purchase_invoices SET bank_transaction_id=? WHERE id=?`, transactionID, invoiceID); err != nil {
+		return err
+	}
+	if err = allocateLegacyPurchase(tx, invoiceID, transactionID); err != nil {
 		return err
 	}
 	return tx.Commit()
