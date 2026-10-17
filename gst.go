@@ -25,16 +25,24 @@ func main() {
 
 	// Initialize Gorilla Mux Router
 	r := mux.NewRouter()
+	auth, err := handlers.NewAuthFromEnv()
+	if err != nil {
+		log.Fatal(err)
+	}
+	auth.Register(r)
 
 	// Initialize the Handlers Server
 	srv := handlers.NewServer(db)
 
 	// --- API Endpoints ---
 	api := r.PathPrefix("/api").Subrouter()
+	api.Use(auth.Require)
 
 	api.HandleFunc("/imports", srv.GetImports).Methods("GET")
 	api.HandleFunc("/imports/{id:[0-9]+}/transactions", srv.GetTransactions).Methods("GET")
+	api.HandleFunc("/imports/{id:[0-9]+}/download", srv.DownloadStatement).Methods("GET")
 	api.HandleFunc("/transactions/{id:[0-9]+}", srv.UpdateTransaction).Methods("PUT")
+	api.HandleFunc("/transactions/{id:[0-9]+}/purchase-allocations", srv.AllocatePurchasePayment).Methods("PUT")
 
 	api.HandleFunc("/business-partners", srv.GetBusinessPartners).Methods("GET")
 	api.HandleFunc("/business-partners", srv.CreateBusinessPartner).Methods("POST")
@@ -51,6 +59,8 @@ func main() {
 	api.HandleFunc("/purchase-invoices/{id:[0-9]+}", srv.SavePurchaseInvoice).Methods("PUT")
 	api.HandleFunc("/purchase-invoices/{id:[0-9]+}/file", srv.DownloadPurchaseInvoice).Methods("GET")
 	api.HandleFunc("/sales-invoices", srv.CreateSalesInvoice).Methods("POST")
+	api.HandleFunc("/sales-invoices/pdf-download", srv.DownloadSalesInvoicesZIP).Methods("POST")
+	api.HandleFunc("/sales-invoices/{id:[0-9]+}/pdf", srv.DownloadSalesInvoicePDF).Methods("GET")
 	api.HandleFunc("/sales-invoices/{id:[0-9]+}", srv.GetSalesInvoiceByID).Methods("GET")
 	api.HandleFunc("/sales-invoices/{id:[0-9]+}", srv.UpdateSalesInvoice).Methods("PUT")
 

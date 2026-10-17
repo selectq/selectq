@@ -23,6 +23,27 @@ func (s *Server) GetPurchaseInvoices(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(invoices)
 }
+
+func (s *Server) AllocatePurchasePayment(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	var payload struct {
+		Allocations []core.PurchaseAllocation `json:"allocations"`
+	}
+	if err != nil || id <= 0 {
+		http.Error(w, "Invalid withdrawal ID", 400)
+		return
+	}
+	if err = json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&payload); err != nil || payload.Allocations == nil {
+		http.Error(w, "Provide an allocations array", 400)
+		return
+	}
+	if err = core.AllocatePurchasePayment(s.DB, id, payload.Allocations); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "Purchase allocations saved"})
+}
 func (s *Server) SavePurchaseInvoice(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 11<<20)
 	if err := r.ParseMultipartForm(1 << 20); err != nil {

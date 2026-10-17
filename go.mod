@@ -3,13 +3,13 @@ module github.com/selectq/selectq
 go 1.25.5
 
 require (
+	github.com/coregx/gxpdf v0.9.4
 	github.com/gorilla/mux v1.8.1
 	github.com/xuri/excelize/v2 v2.11.0
 	modernc.org/sqlite v1.58.0
 )
 
 require (
-	github.com/coregx/gxpdf v0.9.4 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect

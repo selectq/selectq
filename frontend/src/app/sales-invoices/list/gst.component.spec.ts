@@ -37,11 +37,13 @@ describe('Invoice GST fields', () => {
     component.formInvoice.currency = 'USD'; component.onCurrencyChange(); fixture.detectChanges();
     expect(field('IGST')).toBeNull(); expect(component.totalGst).toBe(0);
   });
-  it('prints saved GSTINs and tax split after the company profile changes', () => {
-    const write = jasmine.createSpy('write'); spyOn(window, 'open').and.returnValue({ document: { write, close: () => {} } } as unknown as Window);
-    component.downloadPDF({ ...component.formInvoice, line_items: component.lineItems, seller_gstin: '27AABCU9603R1ZP', buyer_gstin: '29ABCDE1234F1Z5', gst_treatment: 'interstate' });
-    const html = write.calls.mostRecent().args[0] as string;
-    expect(html).toContain('27AABCU9603R1ZP'); expect(html).not.toContain('29AABCU9603R1ZP');
-    expect(html).toContain('<td class="label">IGST</td>'); expect(html).not.toContain('<td class="label">CGST</td>');
+  it('retains saved GSTINs when editing after company profile changes', async () => {
+    component.editInvoice({ ...component.formInvoice, line_items: component.lineItems, seller_gstin: '27AABCU9603R1ZP', buyer_gstin: '29ABCDE1234F1Z5', gst_treatment: 'interstate', project_name: 'Canopy Houston', our_reference: 'Ref A', your_reference: 'Ref B', order_number: 'PO 1', additional_information: 'Notes' });
+    expect(component.sellerGSTIN).toBe('27AABCU9603R1ZP');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect((fixture.nativeElement.querySelector('#project_name') as HTMLInputElement).value).toBe('Canopy Houston');
+    expect(component.formInvoice.additional_information).toBe('Notes');
   });
 });

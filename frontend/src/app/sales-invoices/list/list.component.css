@@ -259,6 +259,7 @@ select option {
 
 /* Inline inputs in line item rows */
 .li-row input,
+.li-row textarea,
 .li-row select {
   padding: 0.45rem 0.5rem;
   font-size: 0.875rem;
@@ -268,6 +269,7 @@ select option {
 }
 
 .li-row input:focus,
+.li-row textarea:focus,
 .li-row select:focus {
   border-color: var(--primary-color);
   background: rgba(99, 102, 241, 0.05);

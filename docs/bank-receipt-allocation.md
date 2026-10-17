@@ -3,6 +3,16 @@
 Click the Invoices cell on a statement transaction, select a business partner, and enter the amount allocated to each invoice. Save allocations applies the
 classification and links together, or rejects the entire change.
 
+For sales receipts, Sub Account Head displays the assigned business partner name
+and supports sorting/filtering by that name. Saving a sales allocation also stores
+that name in Sub Account Head. The Invoices cell displays invoice references;
+click it to manage allocations. Invoice links and amounts remain intact.
+
+Use **Download Bank Statement** on the history detail page to export the original
+Excel layout with Account Head, Sub Account Head, and Invoice columns.
+See [Bank statement download](bank-statement-download.md) for file retention and
+older-import requirements.
+
 The invoice allocation table is the receipt subledger: one bank payment can
 credit multiple invoices and an invoice can receive multiple payments. Amounts
 are in invoice currency. Any unallocated receipt remains available on that bank

@@ -34,10 +34,18 @@
   </div>
 
   <div class="grid-container glass-card" *ngIf="!isLoading && invoices.length > 0">
+    <div style="padding: 1rem;">
+      <button class="btn-primary" [disabled]="selectedInvoiceIDs.length === 0 || isDownloading" (click)="downloadSelectedPDFs()">
+        {{ isDownloading ? 'Preparing download...' : 'Download selected (' + selectedInvoiceIDs.length + ') as ZIP' }}
+      </button>
+      <p class="subtitle">Select up to 100 invoices. The header checkbox selects all filtered invoices across pages.</p>
+    </div>
     <ag-grid-angular
       style="width: 100%; height: 500px;"
       [class]="isDarkMode ? 'ag-theme-quartz-dark' : 'ag-theme-quartz'"
       [rowData]="invoices"
+      [gridOptions]="gridOptions"
+      [initialState]="gridState"
       [columnDefs]="columnDefs"
       [defaultColDef]="defaultColDef"
       [animateRows]="true"
@@ -51,11 +59,17 @@
 <div class="tab-content" *ngIf="activeTab === 'create'">
   <div class="glass-card form-card">
     <div class="form-header">
-      <h3>{{ isEditMode ? 'Edit Invoice' : 'Raise New Invoice' }}</h3>
+      <h3>{{ isEditMode ? 'Edit Sales Invoice: ' + formInvoice.invoice_number : 'Raise New Invoice' }}</h3>
       <p class="form-subtitle">{{ isEditMode ? 'Update the details for this invoice.' : 'Fill in the header and add line items.' }}</p>
     </div>
 
     <label *ngIf="isEditMode"><input type="checkbox" [(ngModel)]="formInvoice.is_closed" /> Closed: prevent new bank transaction links</label>
+    <div class="form-body form-grid">
+      <div class="form-group"><label for="project_name">Project Name</label><input id="project_name" class="form-control" type="text" [(ngModel)]="formInvoice.project_name" /></div>
+      <div class="form-group"><label for="our_reference">Our Ref</label><input id="our_reference" class="form-control" type="text" [(ngModel)]="formInvoice.our_reference" /></div>
+      <div class="form-group"><label for="your_reference">Your Ref</label><input id="your_reference" class="form-control" type="text" [(ngModel)]="formInvoice.your_reference" /></div>
+      <div class="form-group"><label for="order_number">Order No</label><input id="order_number" class="form-control" type="text" [(ngModel)]="formInvoice.order_number" /></div>
+    </div>
     <!-- Invoice Header Fields -->
     <div class="form-body form-grid">
       <div class="form-group">
@@ -157,7 +171,7 @@
         <div class="li-row" *ngFor="let item of lineItems; let i = index">
           <div class="li-col li-col-num">{{ i + 1 }}</div>
           <div class="li-col li-col-desc">
-            <input type="text" [(ngModel)]="item.description" placeholder="Item description" />
+            <textarea rows="2" [(ngModel)]="item.description" placeholder="Item description"></textarea>
           </div>
           <div class="li-col li-col-hsn" *ngIf="isINR">
             <input type="text" [(ngModel)]="item.hsn_sac_code" placeholder="e.g. 998314" />
@@ -214,6 +228,11 @@
       </div>
     </div>
 
+    <div class="form-body form-group">
+      <label for="additional_information">Additional Information (printed after the table)</label>
+      <textarea id="additional_information" class="form-control" rows="3" [(ngModel)]="formInvoice.additional_information" placeholder="Optional invoice-specific notes"></textarea>
+      <small>Payment currency and payer transfer-charge instructions are printed automatically, followed by the fixed bank-details annexure.</small>
+    </div>
     <div class="form-actions">
       <button class="btn-cancel" (click)="cancelForm()">Cancel</button>
       <button class="btn-primary" (click)="save()" [disabled]="isSaving">

@@ -8,3 +8,5 @@ button { cursor:pointer; } button:disabled { opacity:.55; cursor:default; }
 fieldset { border:0; padding:0; min-width:0; } .register { overflow-x:auto; }
 table { width:100%; border-collapse:collapse; } th, td { text-align:left; padding:.75rem; border-bottom:1px solid var(--surface-border); }
 .address { white-space:pre-wrap; min-width:180px; } a { color:var(--primary-color); } .error { color:#ef4444; }
+.payment-table { overflow-x:auto; }
+.payment-table input { width:150px; }

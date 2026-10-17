@@ -102,6 +102,9 @@ func TestInvoiceAllocations(t *testing.T) {
 	if len(txns[0].Allocations) != 2 {
 		t.Fatal("links not returned")
 	}
+	if txns[0].SubAccountHead != txns[0].BusinessPartnerName || txns[0].SubAccountHead == "" {
+		t.Fatal("sales allocation did not store the partner in Sub Account Head")
+	}
 	if err = save(2, []InvoiceAllocation{}); err != nil {
 		t.Fatal(err)
 	}

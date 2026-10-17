@@ -15,7 +15,7 @@ describe('Purchase invoice register', () => {
  it('prefills a linked withdrawal and submits its upload with the invoice', () => {
   api.getTransactions.and.returnValue(of([{ id: 12, date: '12/09/26', withdrawal_amt: 118, account_head: 'Software/Services', narration: 'Supplier payment' } as BankTransaction]));
   const c = component({ transaction_id: '12', import_id: '3' }); c.ngOnInit();
-  expect(c.draft?.bank_transaction_id).toBe(12); expect(c.draft?.total_amount).toBe(118);
+  expect(c.draft?.bank_transaction_id).toBeNull(); expect(c.draft?.total_amount).toBe(118);
   expect(c.draft?.invoice_date).toBe('2026-09-12'); expect(c.source).toBe('Supplier payment');
   c.draft!.party_name = 'Supplier'; c.draft!.party_address = 'City';
   const invoice = { ...c.draft! }; const file = new File(['%PDF-1.4'], 'invoice.pdf', { type: 'application/pdf' }); c.file = file;
@@ -36,6 +36,29 @@ describe('Purchase invoice register', () => {
   api.getTransactions.and.returnValue(of([{ id: 12, withdrawal_amt: 100, account_head: 'To Personal' } as BankTransaction]));
   const c = component({transaction_id: '12', import_id: '3'}); c.ngOnInit();
   expect(c.draft).toBeNull(); expect(c.error).toContain('not eligible'); c.ngOnDestroy();
+ });
+});
+
+describe('Purchase payment allocation', () => {
+ it('splits a withdrawal and retains amounts when validation fails', () => {
+  const api = jasmine.createSpyObj('ApiService', ['allocatePurchasePayment', 'getPurchaseInvoices']);
+  const c = new PurchaseInvoicesComponent(api, {} as ActivatedRoute);
+  c.sourceTransactionId = 12; c.withdrawalAmount = 4567;
+  c.invoices = [{ id: 1, total_amount: 2000, outstanding_amount: 0, payments: [{ bank_transaction_id: 12, purchase_invoice_id: 1, amount: 2000 }] }, { id: 2, total_amount: 3000, outstanding_amount: 2000, payments: [{ bank_transaction_id: 9, purchase_invoice_id: 2, amount: 1000 }] }] as PurchaseInvoice[];
+  c.loadPaymentAmounts();
+  expect(c.paymentInvoices.length).toBe(2);
+  expect(c.invoiceAvailable(c.invoices[0])).toBe(2000);
+  expect(c.invoiceAvailable(c.invoices[1])).toBe(2000);
+  c.paymentAmounts[2] = 1500;
+  expect(c.paymentTotal).toBe(3500);
+  api.allocatePurchasePayment.and.returnValue(throwError(() => ({ error: 'Allocation exceeds outstanding amount' })));
+  c.savePaymentAllocations();
+  expect(api.allocatePurchasePayment).toHaveBeenCalledWith(12, [{ purchase_invoice_id: 1, amount: 2000 }, { purchase_invoice_id: 2, amount: 1500 }]);
+  expect(c.paymentAmounts[2]).toBe(1500); expect(c.error).toContain('outstanding'); expect(c.saving).toBeFalse();
+  api.allocatePurchasePayment.and.returnValue(of({})); api.getPurchaseInvoices.and.returnValue(of([]));
+  c.paymentAmounts = {1: 0, 2: 0}; c.savePaymentAllocations();
+  expect(api.allocatePurchasePayment).toHaveBeenCalledWith(12, []);
+  expect(c.sourceTransactionId).toBe(12); expect(c.message).toContain('saved'); c.ngOnDestroy();
  });
 });
 
@@ -87,7 +110,7 @@ describe('Purchase invoice PDF upload', () => {
   const file = new File(['%PDF-1.4'], 'invoice.pdf', {type:'application/pdf'});
   c.parseInvoice({ target: { files: [file], value: 'invoice.pdf' } } as unknown as Event);
   expect(c.draft?.invoice_number).toBe('DPO2721818165521');
-  expect(c.draft?.total_amount).toBe(2297.45); expect(c.draft?.bank_transaction_id).toBe(12);
+  expect(c.draft?.total_amount).toBe(2297.45); expect(c.draft?.bank_transaction_id).toBeNull();
   expect(c.file).toBe(file); expect(api.savePurchaseInvoice).not.toHaveBeenCalled(); c.ngOnDestroy();
  });
  it('preserves the draft when extraction fails', () => {
