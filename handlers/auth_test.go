@@ -224,7 +224,7 @@ func TestAuthRejectsInvalidState(t *testing.T) {
 
 func TestAuthConfiguration(t *testing.T) {
 	a := testAuth(t)
-	for _, origin := range []string{"http://public.example", "https://studio.example/path", "https://user:secret@studio.example", "https://studio.example?x=1"} {
+	for _, origin := range []string{"ftp://public.example", "https://studio.example/path", "https://user:secret@studio.example", "https://studio.example?x=1"} {
 		t.Setenv("APP_ORIGIN", origin)
 		if _, err := NewAuthFromEnv(); err == nil {
 			t.Fatalf("accepted invalid origin %s", origin)
@@ -242,5 +242,27 @@ func TestAuthConfiguration(t *testing.T) {
 	r.ServeHTTP(w, httptest.NewRequest("GET", "/auth/google", nil))
 	if w.Header().Get("Location") != "/login?error=setup" {
 		t.Fatal("unconfigured login should show setup state")
+	}
+}
+
+func TestAuthPublicHTTPOrigin(t *testing.T) {
+	testAuth(t)
+	t.Setenv("APP_ORIGIN", "http://completedesign.in:8080")
+	a, err := NewAuthFromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	a.login(w, httptest.NewRequest("GET", "/auth/google", nil))
+	location, err := url.Parse(w.Header().Get("Location"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if location.Query().Get("redirect_uri") != "http://completedesign.in:8080/auth/google/callback" {
+		t.Fatal("incorrect HTTP callback URL")
+	}
+	cookies := w.Result().Cookies()
+	if len(cookies) == 0 || cookies[0].Secure || !cookies[0].HttpOnly {
+		t.Fatal("HTTP login requires an HttpOnly cookie without Secure")
 	}
 }

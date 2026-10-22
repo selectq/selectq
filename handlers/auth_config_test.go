@@ -10,11 +10,52 @@ import (
 func cleanAuthConfig(t *testing.T) {
 	t.Helper()
 	t.Chdir(t.TempDir())
-	for _, key := range []string{"AUTH_CONFIG_FILE", "APP_ORIGIN", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "AUTH_ALLOWED_EMAILS", "AUTH_ALLOWED_DOMAINS"} {
+	for _, key := range []string{"AUTH_CONFIG_FILE", "APP_ORIGIN", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "AUTH_ALLOWED_EMAILS", "AUTH_ALLOWED_DOMAINS", "TLS_CERT_FILE", "TLS_KEY_FILE"} {
 		t.Setenv(key, "")
 		if err := os.Unsetenv(key); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+func TestServerConfiguration(t *testing.T) {
+	for _, tc := range []struct {
+		name, config, address string
+		tls, wantError        bool
+	}{
+		{"default", `{}`, ":8080", false, false},
+		{"http", `{"tls_enabled":false}`, ":8080", false, false},
+		{"tls", `{"tls_enabled":true,"tls_cert_file":"cert.pem","tls_key_file":"key.pem"}`, ":443", true, false},
+		{"custom port", `{"tls_enabled":true,"tls_cert_file":"cert.pem","tls_key_file":"key.pem","listen_address":":8443"}`, ":8443", true, false},
+		{"missing certificate", `{"tls_enabled":true,"tls_key_file":"key.pem"}`, "", true, true},
+		{"missing key", `{"tls_enabled":true,"tls_cert_file":"cert.pem"}`, "", true, true},
+		{"wrong flag type", `{"tls_enabled":"true"}`, "", false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cleanAuthConfig(t)
+			writeAuthConfig(t, tc.config)
+			cfg, err := LoadServerConfig()
+			if (err != nil) != tc.wantError {
+				t.Fatalf("unexpected configuration error: %v", err)
+			}
+			if err == nil && (cfg.ListenAddress != tc.address || cfg.TLSEnabled != tc.tls) {
+				t.Fatalf("unexpected listener configuration: %+v", cfg)
+			}
+		})
+	}
+}
+
+func TestServerTLSCredentialEnvironment(t *testing.T) {
+	cleanAuthConfig(t)
+	writeAuthConfig(t, `{"tls_enabled":true,"tls_cert_file":"file-cert","tls_key_file":"file-key"}`)
+	t.Setenv("TLS_CERT_FILE", "service-cert")
+	t.Setenv("TLS_KEY_FILE", "service-key")
+	cfg, err := LoadServerConfig()
+	if err != nil || cfg.TLSCertFile != "service-cert" || cfg.TLSKeyFile != "service-key" {
+		t.Fatalf("TLS environment overrides not applied: %v", err)
+	}
+	if _, err := NewAuthFromEnv(); err != nil {
+		t.Fatalf("authentication must accept TLS configuration: %v", err)
 	}
 }
 

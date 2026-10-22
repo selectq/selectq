@@ -55,8 +55,8 @@ func NewAuthFromEnv() (*Auth, error) {
 	}
 	u, err := url.Parse(origin)
 	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" ||
-		(u.Scheme != "https" && !(u.Scheme == "http" && (u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1"))) {
-		return nil, fmt.Errorf("APP_ORIGIN must be an HTTPS origin (HTTP is allowed only for localhost)")
+		(u.Scheme != "https" && u.Scheme != "http") {
+		return nil, fmt.Errorf("APP_ORIGIN must be an HTTP or HTTPS origin without a path, credentials, query, or fragment")
 	}
 	return &Auth{clientID: cfg.ClientID, clientSecret: cfg.ClientSecret, origin: origin,
 		emails: authSet(strings.Join(cfg.AllowedEmails, ",")), domains: authSet(strings.Join(cfg.AllowedDomains, ",")),

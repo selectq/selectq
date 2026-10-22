@@ -10,11 +10,39 @@ import (
 )
 
 type authConfig struct {
+	ServerConfig
 	Origin         string   `json:"app_origin"`
 	ClientID       string   `json:"google_client_id"`
 	ClientSecret   string   `json:"google_client_secret"`
 	AllowedEmails  []string `json:"allowed_emails"`
 	AllowedDomains []string `json:"allowed_domains"`
+}
+
+// ServerConfig controls the application's own listener, independently of a proxy.
+type ServerConfig struct {
+	TLSEnabled    bool   `json:"tls_enabled"`
+	TLSCertFile   string `json:"tls_cert_file"`
+	TLSKeyFile    string `json:"tls_key_file"`
+	ListenAddress string `json:"listen_address"`
+}
+
+// LoadServerConfig reads listener settings from the same file as authentication.
+func LoadServerConfig() (ServerConfig, error) {
+	cfg, err := loadAuthConfig()
+	if err != nil {
+		return ServerConfig{}, err
+	}
+	server := cfg.ServerConfig
+	if server.ListenAddress == "" {
+		server.ListenAddress = ":8080"
+		if server.TLSEnabled {
+			server.ListenAddress = ":443"
+		}
+	}
+	if server.TLSEnabled && (strings.TrimSpace(server.TLSCertFile) == "" || strings.TrimSpace(server.TLSKeyFile) == "") {
+		return ServerConfig{}, fmt.Errorf("tls_cert_file and tls_key_file are required when tls_enabled is true")
+	}
+	return server, nil
 }
 
 // Configuration is read at server startup, never embedded in browser assets or
@@ -49,6 +77,7 @@ func loadAuthConfig() (authConfig, error) {
 	}
 	for key, target := range map[string]*string{
 		"APP_ORIGIN": &cfg.Origin, "GOOGLE_CLIENT_ID": &cfg.ClientID, "GOOGLE_CLIENT_SECRET": &cfg.ClientSecret,
+		"TLS_CERT_FILE": &cfg.TLSCertFile, "TLS_KEY_FILE": &cfg.TLSKeyFile,
 	} {
 		if value, set := os.LookupEnv(key); set {
 			*target = value

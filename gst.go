@@ -14,6 +14,10 @@ import (
 )
 
 func main() {
+	listener, err := handlers.LoadServerConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
 	dbPath := "bank_statements.db"
 
 	// Initialize Database
@@ -102,9 +106,14 @@ func main() {
 		fs.ServeHTTP(w, req)
 	})
 
-	port := ":8080"
-	fmt.Printf("Server starting on http://localhost%s\n", port)
-	if err := http.ListenAndServe(port, r); err != nil {
+	if listener.TLSEnabled {
+		fmt.Printf("HTTPS server listening on %s\n", listener.ListenAddress)
+		err = http.ListenAndServeTLS(listener.ListenAddress, listener.TLSCertFile, listener.TLSKeyFile, r)
+	} else {
+		fmt.Printf("HTTP server listening on %s\n", listener.ListenAddress)
+		err = http.ListenAndServe(listener.ListenAddress, r)
+	}
+	if err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
 }
