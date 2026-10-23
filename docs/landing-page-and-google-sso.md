@@ -1,6 +1,6 @@
 # Select Q website and Google sign-in
 
-The public homepage is `/`. It includes a filterable portfolio, expandable project previews, studio introduction, team placeholders, office address and map link. `/login` is the private workspace entry. Existing accounting URLs remain available after authentication.
+The public homepage is `/`. It includes a filterable portfolio, expandable project previews, studio introduction, team role cards, office address and map link. `/login` is the private workspace entry. Existing accounting URLs remain available after authentication.
 
 ## Website content
 
@@ -8,7 +8,7 @@ Edit `frontend/src/app/landing/landing.content.ts` for projects, team roles, ema
 
 The office address was copied from the existing company profile: House No 189, Sector 31, Near Primary Govt School, Haryana 121003, India. This is a separate public copy. The accounting company-profile API remains private; changes in Settings do not automatically publish online.
 
-The photographs in `frontend/src/assets/portfolio/` were downloaded from [Kay Lang + Associates](https://www.kaylangassocs.com/) at the user's request as temporary references. Visible labels and original watermarks identify the source. Replace these with Select Q photographs before publishing the portfolio as company work. Exact source URLs are in the asset README.
+The photographs in `frontend/src/assets/portfolio/` were downloaded from [Kay Lang + Associates](https://www.kaylangassocs.com/) at the user's request as temporary references. The homepage labels these as reference imagery; source credits are recorded in the asset README. Original image watermarks are unchanged. Replace these with Select Q photographs before publishing the portfolio as company work. Exact source URLs are in the asset README.
 
 ## Configure Google SSO
 
